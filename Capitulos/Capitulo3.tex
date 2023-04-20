@@ -1,0 +1,522 @@
+% Capítulo 3
+\chapter{Estudo de Caso em StarCraft}
+
+O objetivo do estudo de caso deste trabalho é testar o modelo Cerebrate, proposto no capítulo anterior, no ambiente do jogo StarCraft. Devido ao problema de StarCraft ser bastante complexo, neste trabalho faremos testes em um contexto reduzido deste jogo com o intuito de comparar as aberturas no confronto Zerg versus Terran. Como o trabalho se focará na raça Zerg, segue uma descrição mais detalhada desta raça.
+
+\section{A Raça Zerg}
+A força dos \emph{Zerg} está nos números, e não em poucas unidades fortes. É a única raça que possui unidades que consomem menos que um suprimento: \emph{zerglings}\footnote{Primeira unidade de ataque \emph{zerg}. Só é capaz de atacar unidades terrestres, por ataques corpo-a-corpo.} e \emph{scourges}\footnote{Uma das primeiras unidades voadoras \emph{zerg}. Só é capaz de atacar unidades voadoras, por ataques corpo-a-corpo.} são produzidos aos pares e cada unidade consome meio suprimento. Suprimentos são aumentados com a produção de \emph{overlords} e bases. A base zerg fornece apenas um de suprimento, ao contrário dos 10 suprimentos do \emph{command center} dos Terran e dos 9 suprimentos do \emph{nexus} dos Protoss. A fonte padrão de suprimentos, o overlord, além de aumentar a capacidade populacional também é a unidade \emph{detectora}\footnote{Unidade capaz de expor unidades invisíveis.} e o \emph{transporte}\footnote{Unidade voadora que pode carregar outras unidades dentro de si.}.
+
+Suas estruturas de produção de unidades são também as estruturas de coleta de recurso. Elas produzem \emph{larvas}, de onde é possível fazer qualquer unidade. Cada estrutura pode sustentar até 3 larvas simultaneamente.
+
+Já que não possuem estruturas dedicadas somente à produção de unidades, os Zerg possuem apenas estruturas que desbloqueiam unidades. Além disso, dependem da \emph{gosma} para construção dessas estruturas. Ela é espalhada ao redor de bases e de estruturas de defesa, \emph{creep colony}, \emph{spore colony} e \emph{sunken colony}.
+
+Sua capacidade tecnológica depende do tipo de estrutura que serve de base, começando no primeiro nível tecnológico com a \emph{hatchery}, e seguindo com \emph{lair} e \emph{hive}, no segundo e terceiro níveis, respectivamente. Isto significa que para desbloquear a possibilidade de construção de estruturas de segundo nível, é preciso evoluir a \emph{hatchery} para uma \emph{lair}.
+
+\section{Simplificações do modelo}
+Devido às características da raça Zerg e à proposta do trabalho, que é de avaliar as aberturas que existem no confronto Zerg versus Terran, alguns aspectos do modelo Cerebrate foram alterados ou retirados.
+
+Aberturas são ordens de construção que contém apenas estruturas e unidades. Não há, dentro do escopo delas, a possibilidade de alterar a ordem de construção ou de fazer alguma pesquisa tecnológica. Devido a essas características, constatamos que não há a necessidade de controlar unidades militares ou de fazer pesquisas tecnológicas.
+
+Portanto, as seguintes simplificações foram feitas:
+\begin{itemize}
+	\item A segunda fase do modelo, a reação, não será tratada. Como apenas as aberturas serão testadas, a parte do modelo que cuida do meio-jogo não é necessária.
+	\item O Ministério de Tecnologia não será utilizado, pois as aberturas não requerem a pesquisa de nenhuma tecnologia.
+	\item O Ministério de Defesa não será utilizado, pois as unidades militares não deverão ser controladas.
+	\item Como não haverá controle de unidades militares, a Agência de Inteligência não se encarregará de fazer tarefas de patrulhamento.
+	\item O Ministério de Infraestrutura não liberará trabalhadores, pois eles se tornam a própria estrutura a ser construída, devido às características específicas da raça Zerg,.
+\end{itemize}
+
+As próximas seções descrevem detalhes da aplicação do modelo Cerebrate em StarCraft.
+
+\section{Estrutura do modelo}
+Cada ministério do Cerebrate é estruturado hierarquicamente. Eles são representados como \emph{namespaces} que definem estruturas de controle e atuação nas áreas específicas de cada ministério. Em todos eles, há uma estrutura que controla instâncias das outras estruturas que pertencem ao ministério. Esta estrutura controladora é o agente responsável pelo ministério. Estes agentes possuem as funções:
+
+\begin{itemize}
+ 	\item \emph{update}: Atualiza as suas informações do controlador a cada quadro do jogo.
+ 	\item \emph{act}: Caso o agente possua unidades para controlar, esta função é usada para dar ordens a essas unidades.
+ \end{itemize}
+
+A seguir estão descritas as estruturas que compõem os ministérios.
+
+\subsection{Ministério de Minas e do Trabalho}
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.55]{Imagens/uml-mines.jpg}
+	\caption{Diagrama de Classes das estruturas do Ministério de Minas e do Trabalho.}
+	\label{fig:umlmines}
+\end{figure}
+
+A Figura~\ref{fig:umlmines} mostra o diagrama das estruturas que compõem o ministério de minas. Ele possui uma estrutura para ligar trabalhadores a seus estados, a \emph{MinerDrone}. Esta estrutura é agrupada em um \emph{vector}, chamado \emph{Minerset}. Desta forma, existe uma estrutura que comporte todos os trabalhadores ligados a uma jazida de minérios. Porém, para a mineração efetiva de uma base, são necessários outras informações e funcionalidades. A estrutura \emph{Mineralset} comporta as informações sobre as jazidas de minérios (\emph{patches}), o estado destas jazidas (\emph{mining}), os trabalhadores ligados a elas (\emph{miners}) e a posição da base (\emph{position}). Além disso, possui as funções:
+\begin{itemize}
+	\item \emph{addMiner}: adiciona um novo trabalhador a uma das jazidas da base;
+	\item \emph{balance}: equilibra a quantidade de trabalhadores por jazida de minério, para uma mineração mais eficiente;
+	\item \emph{getBestMineral}: retorna a jazida de minério mais próxima da posição da base e com menos trabalhadores por minério;
+	\item \emph{getDrone}: retorna um trabalhador que não esteja minerando, caso exista.
+\end{itemize}
+
+A partir desta estrutura, podemos criar um conjunto de bases e fazê-las atuar como um conjunto. Para isso, foi feita a estrutura \emph{Miner}, que além de reunir as bases em um \emph{vector}, possui as funcionalidades:
+\begin{itemize}
+	\item \emph{add}: adiciona uma base recém criada;
+	\item \emph{remove}: remove uma base, a partir do índice que esta base possui no \emph{vector} de bases;
+	\item \emph{idleWorker}: esta função é chamada ao identificar um trabalhador ocioso que ainda não faça parte do conjunto de mineradores do ministério;
+	\item \emph{getDrone}: procura a base mais próxima do ponto dado e retorna o trabalhador dado pela função \emph{getDrone} do \emph{Mineralset} que descreve esta base.
+\end{itemize}
+
+\subsection{Ministério da Economia}
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.8]{Imagens/uml-economy.jpg}
+	\caption{Diagrama de Classes das estruturas do Ministério da Economia.}
+	\label{fig:umleco}
+\end{figure}
+
+O ministério da economia oferece um meio de gerenciar os itens cujo gasto não é imediato. Mostradas na Figura~\ref{fig:umleco}, as estruturas auxiliares são: \emph{Budget}, que descreve o valor dos itens, e \emph{Economist} que armazena os orçamentos atuais. Esta última contém uma lista de orçamentos identificados por números únicos (\emph{budgets}) e provê as seguintes funções:
+\begin{itemize}
+	\item \emph{add}: adiciona um orçamento ou um item à lista do ministério;
+	\item \emph{remove}: remove o orçamento que possui a identificação dada;
+	\item \emph{minerals}: retorna a quantidade de minérios que o jogador pode gastar, isto é, os minérios totais menos o valor em minérios de todos os orçamentos;
+	\item \emph{gas}: retorna a quantidade de gás vespeno que o jogador pode gastar, utilizando-se da mesma lógica.
+\end{itemize}
+
+\subsection{Agência de Inteligência}
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.6]{Imagens/uml-intel.jpg}
+	\caption{Diagrama de Classes das estruturas da Agência de Inteligência.}
+	\label{fig:umlintel}
+\end{figure}
+
+A agência de inteligência ficou responsável por manter e atualizar o grafo de bases do mapa da partida. As estruturas e suas relações podem ser vistas na Figura~\ref{fig:umlintel}. Para descrever as bases, precisaremos de estruturas auxiliares que indiquem a posse da base (\emph{Ownership}) e o último estado conhecido dos recursos (\emph{Resource}). As bases (\emph{BaseInfo}) possuem estados de posse (\emph{owner}), jazidas de minérios (\emph{patches}), gêiseres de gás vespeno (\emph{geysers}), um polígono que descreve a região andável (\emph{region}) e as informações dadas pela biblioteca de análise de terreno (\emph{base}). As funções \emph{minerals} e \emph{gas} retornam a quantidade total de recursos de uma base.
+
+A partir destas informações sobre as bases, podemos criar um grafo. O grafo descreve as posições iniciais e as distâncias delas entre si, as naturais destas posições e as distâncias das naturais até todas as outras bases. As naturais deste grafo são descritos pela estrutura \emph{Location}. Eles possuem a informação sobre a base (\emph{info}), os nós adjacentes (\emph{bases}), a distância até estes nós (\emph{ground}) e o valor que cada nó adjacente possui (\emph{potential}). Para identificar a ordem de expansão, esta estrutura possui a função \emph{sort}, que ordena as bases pelo potencial e pela posse, deixando as bases com maior potencial e sem dono nas primeiras posições, e as bases com dono e menor potencial nas últimas posições.
+
+Cada natural está ligada a uma posição inicial, que é descrita pela estrutura \emph{StartLocation}. Além de conter informações sobre as distâncias terrestres entre as localizações iniciais do mapa, esta estrutura também possui as distâncias aéreas entre elas e a informação sobre a natural.
+
+A estrutura \emph{BaseGraph} contém todas as informações necessárias para o grafo. Ela guarda as informações de todas as bases do mapa (\emph{bases}), informações dos nós do grafo (\emph{startLocations}) e a referência das posições iniciais do jogador e do inimigo (\emph{selfIndex} e \emph{enemyIndex}, respectivamente). Além disso, esta estrutura possui as funções:
+\begin{itemize}
+ 	\item \emph{self}: retorna a posição inicial do jogador;
+ 	\item \emph{enemy}: retorna a posição inicial do inimigo;
+ 	\item \emph{enemyKnown}: retorna a posição inicial do inimigo é conhecida;
+ 	\item \emph{expanded}: altera a posse da base que fica na posição indicada, tornando-a do jogador;
+ 	\item \emph{enemySighted}: altera a posse da base que fica na posição indicada, tornando-a do inimigo;
+ 	\item \emph{populate}: chamada após a análise de terreno, esta função cria as informações da base e o grafo;
+ 	\item \emph{nextBase}: retorna a próxima base que o jogador deve tomar.
+ \end{itemize}
+
+ Como a agência de inteligência ficou responsável apenas pelo grafo de bases, a estrutura \emph{Agent} serve como fachada para a \emph{BaseGraph}. Ele possui um ponteiro para ela, pois o grafo é alocado dinamicamente.
+
+\subsection{Ministério da Infraestrutura}
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.55]{Imagens/uml-infra.jpg}
+	\caption{Diagrama de Classes das estruturas do Ministério de Infraestrutura.}
+	\label{fig:umlinfra}
+\end{figure}
+
+O ministério de infraestrutura precisa de estruturas para controle de unidades, posicionamento prévio de estruturas e um conjunto de funções para o cálculo de \emph{potential fields} (Figura~\ref{fig:umlinfra}). As estruturas de controle de construtores se assemelham às estruturas do ministério de minas. \emph{BuilderStates} descreve quais estados comportamentais existem. \emph{BuilderDrone} faz a ligação da unidade (\emph{drone}) com seu estado atual (\emph{state}), a construção que deve erguer (\emph{building}), a localização da construção (\emph{target}), a posição que a unidade deve atingir para que possa construir (\emph{center}) e a identificação do orçamento no ministério da economia, para que se possa apagar o orçamento após a construção.
+
+O conjunto de construtores é organizado na estrutura \emph{Builderset}, que, além de possuir a lista destas unidades (\emph{builders}), possui a função \emph{act}. Esta função, como todas as outras com este nome, dá ordens às unidades que estão sob o controle da estrutura. Porém, além disso, ela faz uso de outros ministérios para atualização de algumas informações:
+
+\begin{itemize}
+	\item \emph{Economist}: retira o orçamento que foi alocado para uma construção que tenha sido começada;
+	\item \emph{Manager}: agente responsável pelo ministério da indústria, ele é chamado quando uma construção tenha sido cancelada;
+	\item \emph{Miner}: quando uma nova base é conquistada, sua localização é adicionada à lista de bases do ministério;
+	\item \emph{Agent}: quando uma base é conquistada, seu estado de posse é alterado para ser do jogador.
+\end{itemize}
+
+Para alocar muralhas, foi necessária a criação de uma estrutura que descreva uma ``vaga'' para as construções. Esta estrutura, \emph{BuildingSlot}, possui o tamanho da construção em blocos de construção (\emph{x} e \emph{y}) e a posição da ``vaga'' (\emph{position}). Ela também oferece a função \emph{isOccupied}, que retorna um booleano indicando se um determinado bloco de construção está dentro da área de sua ``vaga''.
+
+Como as muralhas são feitas a partir de uma base, elas foram descritas a partir disto. As bases estão detalhadas na estrutura \emph{Hatchery}. Ela possui a posição da base (\emph{hatch}), as informações sobre ela (\emph{base}) e uma lista de alocações de estruturas para a muralha (\emph{wall}). Ela oferece as funções:
+
+\begin{itemize}
+	\item \emph{isOccupied}: informa se o bloco de construção está dentro das áreas da muralha ou da base;
+	\item \emph{adjacent}: informa se o bloco de construção é adjacente à base.
+\end{itemize}
+
+Finalmente, a estrutura que une todos estes conceitos é a \emph{Builder}. Ela possui as informações dos construtores (\emph{builders}) e das bases (\emph{hatcheries}). Suas funções são:
+
+\begin{itemize}
+	\item \emph{build}: solicita um trabalhador do ministério de minas (\emph{Miner}) e adiciona este trabalhador na lista de construtores;
+	\item \emph{addHatch}: adiciona uma base à lista de bases da estrutura, além de alocar uma muralha para ela;
+	\item \emph{getPosition}: retorna o alocamento de uma construção.
+\end{itemize}
+
+\subsection{Ministério da Indústria}
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.55]{Imagens/uml-industry.jpg}
+	\caption{Diagrama de Classes das estruturas do Ministério da Indústria.}
+	\label{fig:umlindustry}
+\end{figure}
+
+O ministério da indústria possui uma fila de prioridades (\emph{ProductionQueue}) para os itens da ordem de construção (\emph{Production}). Cada item pode ser ou uma unidade (\emph{type}), o que inclui construções também, ou uma pesquisa (\emph{tech}), além de possuir um valor que indica a sua prioridade (\emph{priority}). As filas atualizam todo quadro para retirar os elementos que possuem um valor de prioridade menor que um determinado limiar (\emph{threshold}).
+
+A estrutura controladora da fila, a \emph{Manager}, possui tanta a fila (\emph{queue}) como as estruturas de produção (\emph{hatcheries}). Para facilitar o acesso das larvas que existem em todas as \emph{hatcheries}, a função \emph{getLarva} junta todas as larvas em um único conjunto. Para criação das aberturas, a função \emph{add} foi criada, recebendo o item a ser inserido. As outras funções existem para auxiliar a função \emph{update}:
+
+\begin{itemize}
+	\item \emph{morph}: caso o primeiro item seja uma unidade, esta função seleciona uma larva e cria a unidade;
+	\item \emph{build}: caso o item seja uma construção, esta função chama a função \emph{build} da \emph{Miner};
+	\item \emph{pop}: esta função que avalia os itens e chama as funções necessárias para o cumprimento da ação;
+\end{itemize}
+
+\subsection{Cerebrate}
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.8]{Imagens/uml-cerebrate.jpg}
+	\caption{Estrutura do Cerebrate.}
+	\label{fig:umlindustry}
+\end{figure}
+
+O Cerebrate contém uma instância de cada agente dos ministérios. Eles são atualizados na ordem: (a) Agência de Inteligência, (b) Ministério de Infraestrutura, (c) Ministério de Minas e do Trabalho e (d) Ministério da Indústria. Além das funções comuns a todos os agentes, o Cerebrate também possui:
+
+\begin{itemize}
+	\item \emph{start}: o jogo começa no quadro 0, e neste quadro esta função especial de inicialização, responsável pela análise de terreno e a configuração inicial de todos os agentes, é chamada;
+	\item \emph{setOpening}: durante esta fase inicial, a escolha da abertura a ser utilizada é feita através desta função.
+\end{itemize}
+
+\section{Escolha de aberturas}
+Para decidir qual abertura tomar, a \emph{game AI} verificará as distâncias terrestres entre as principais. Caso haja mais de duas posições iniciais e não se saiba a posição do oponente a tempo de fazer uma escolha, ele assume que cada valor será a média das distâncias correspondentes entre todas as principais e naturais. Essas distâncias serão, então, passadas para funções de pertinência referentes às aberturas escolhidas para esse trabalho. As distâncias são dadas em uma unidade de distância $D$, que é a distância correspondente à largura de um pixel no mapa, e passadas para as funções em unidades de $kD$, $10^3 D$. As funções de pertinência para as distâncias, cujo gráfico está mostrado na Figura~\ref{fig:graphdist}, são as seguintes:
+%\begin{equation}
+%	\displaystyle
+%	tanh(x) = \frac{1-e^{-2x}}{1+e^{-2x}}
+%\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{5 pool}_d = \Big(1 -\dfrac{tanh(2(terrestre-5))+1}{2}\Big)^2
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{9 pool}_d = \mathlarger{\mathlarger{e}}^{-\dfrac{(terrestre-4.5)^2}{0.32}}
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{Overpool}_d = \mathlarger{\mathlarger{e}}^{-\dfrac{(terrestre-5)^2}{0.8}}
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{12 pool}_d = \mathlarger{\mathlarger{e}}^{-\dfrac{(terrestre-5.5)^2}{0.64}}
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{12 hatch}_d = \dfrac{tanh(1.5(terrestre-5))+1}{2}
+\end{equation}
+
+\begin{figure}[h]
+	\centering
+	\begin{tikzpicture}
+		\begin{axis}[
+			width=15cm,height=6.4cm,
+			xtick={3,4,...,7},
+			xlabel={\footnotesize{Distância Terrestre entre as Principais em $kD$}},
+			xmin=3,
+			xmax=7,
+			legend style={at={(0,0.25)},anchor=south west}]
+
+			\addplot[domain=3:7, color={sixpool}, samples=200] {(1-(tanh(2*x-10)+1)/2)^2};
+			\addlegendentry{5 pool}
+
+			\addplot[domain=3:7, color={ninepool}, samples= 200] {e^((x-4.5)^2/-0.32)};
+			\addlegendentry{9 pool}
+			\addplot[domain=3:7, color={overpool}, samples=200] {e^((x-5)^2/-0.8)};
+			\addlegendentry{Overpool}
+			\addplot[domain=3:7, color={twelpool}, samples=200] {e^((x-5.5)^2/-0.64)};
+			\addlegendentry{12 pool}
+			\addplot[domain=3:7, color={twelhatch}, samples=200] {(tanh(1.5*x-7.5)+1)/2};
+			\addlegendentry{12 hatch}
+		\end{axis}
+	\end{tikzpicture}
+	\caption{Gráfico das funções de pertinência das distâncias}
+	\label{fig:graphdist}
+\end{figure}
+
+Logo após, são calculadas as pertinências referentes à passividade do Cerebrate. As funções foram modeladas de forma que quanto maior a passividade, menor a pertinência nas aberturas agressivas (\emph{rushes} e \emph{cheeses}) e maior a pertinência nas aberturas mais tradicionais. O gráfico dessas funções está plotado na Figura~\ref{fig:graphpas}.
+
+\begin{equation}
+	\displaystyle
+	\text{5 pool}_p = \left(1 - \dfrac{tanh(5(passividade-0.5))+1}{2}\right)^2
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{9 pool}_p = \mathlarger{\mathlarger{e}}^{-\dfrac{(passividade-0.2)^2}{0.08}}
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{Overpool}_p = \mathlarger{\mathlarger{e}}^{-\dfrac{(passividade-0.3)^2}{0.12}}
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{12 pool}_p = \mathlarger{\mathlarger{e}}^{-\dfrac{(passividade-0.43)^2}{0.06}}
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{12 hatch}_p = \dfrac{tanh(2(passividade-0.1))+1}{2}
+\end{equation}
+
+\begin{figure}[h]
+	\centering
+	\begin{tikzpicture}
+		\begin{axis}[
+			width=15cm,height=6.4cm,
+			xlabel={\footnotesize{Passividade}},
+			legend style={at={(1,0.25)},anchor=south east},
+			xmin=0,
+			xmax=1]
+
+			\addplot[domain=0:1, color={sixpool}, samples=200] {(1-((tanh(5*x-2.5)+1)/2))^2};
+			\addplot[domain=0:1, color={ninepool}, samples=200] {e^(-(x-0.2)^2/0.08)};
+			\addplot[domain=0:1, color={overpool}, samples=200] {e^(-(x-0.3)^2/0.12)};
+			\addplot[domain=0:1, color={twelpool}, samples=200] {e^(-(x-0.5)^2/0.06)};
+			\addplot[domain=0:1, color={twelhatch}, samples=200] {(tanh(2*(x-0.1))+1)/2};
+			\legend{5 pool, 9 pool, Overpool, 12 pool, 12 hatch}
+		\end{axis}
+	\end{tikzpicture}
+	\caption{Gráfico das funções de pertinência da passividade}
+	\label{fig:graphpas}
+\end{figure}
+
+A partir das pertinências de distância e passividade, é possível calcular o valor da pertinência final das aberturas, que se dará ao utilizar o operador fuzzy \emph{ou}\footnote{O operador fuzzy \emph{ou} utilizado tem como significado uma operação de união: $\mu_{a \cup b} = \mu(a) + \mu(b) - \mu(a)\mu(b)$.} sobre os dois valores. Isto é:
+
+\begin{equation}
+	\displaystyle
+	\text{5 pool} = \text{5 pool}_d \lor \text{5 pool}_p
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{9 pool} = \text{9 pool}_d \lor \text{9 pool}_p
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{Overpool} = \text{Overpool}_d \lor \text{Overpool}_p
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{12 pool} = \text{12 pool}_d \lor \text{12 pool}_p
+\end{equation}
+\begin{equation}
+	\displaystyle
+	\text{12 hatch} = \text{12 hatch}_d \lor \text{12 hatch}_p
+\end{equation}
+
+Após o cálculo final, a escolha é feita aleatoriamente entre as duas aberturas com maiores pertinências. Cada uma delas possui chance proporcional à sua pertinência em relação à soma das duas maiores, ou seja:
+\begin{equation}
+	\displaystyle
+	chance_a = \dfrac{pertinencia_a}{pertinencia_a+pertinencia_b}
+\end{equation}
+\begin{equation}
+	\displaystyle
+	chance_b = \dfrac{pertinencia_b}{pertinencia_a+pertinencia_b}
+\end{equation}
+
+\section{Expansão econômica}
+Para a criação do grafo de bases, primeiro são achadas as bases correspondentes às posições iniciais do mapa, isto é, todas as principais do mapa. Então, procura-se a base mais próxima a cada uma das posições iniciais. Estas bases são as naturais e são atribuídas a suas respectivas principais. Após isso, o grafo é completado com as distâncias terrestres das naturais para todas as outras bases, que não são suas principais. As bases atribuídas à natural do jogador são ordenadas de acordo com uma função que avalia o potencial de mineração de uma base e de acordo com o dono dessa base. Bases que possuem dono são as últimas, enquanto bases livres e com alto potencial são as primeiras da lista de bases.
+
+A função de potencial das bases é calculada baseada nas seguintes propriedades:
+\begin{itemize}
+	\item Quantidade de jazidas de minério
+	\item Quantidade total de minérios disponíveis\footnote{Como a priori não sabe-se quantos minérios existem em cada jazida, utiliza-se o valor padrão de $1500$.}
+	\item Quantidade total de gás vespeno disponível\footnote{Da mesma forma que os minérios, utiliza-se o valor padrão de $5000$ para expressar o valor desconhecido.}
+	\item Distância até a base principal
+	\item Distância até a base do oponente
+\end{itemize}
+
+Cada uma dessas propriedades é passada para uma função de pertinência específica para ela, e então passadas para uma função que calcula o potencial da expansão. As distâncias são passadas para a função $dist$ em $kD$, a quantidade de minérios nas jazidas e a quantidade de vespeno nos gêiseres são passadas em unidades de $10^3$. O gráfico da função $dist$ e das outras funções de pertinências podem ser vistos na Figura~\ref{fig:graphs}.
+
+A função $dist$ retorna um valor fuzzy referente a quão distante um ponto está do outro. Ela foi modelada de acordo com os mapas usados nas competições existentes de \emph{game AI} para StarCraft. As distâncias entre as principais de cada mapa foram verificadas e uma função sigmóide foi modelada baseando-se nas distâncias mais curtas e mais longas encontradas nos mapas. Esta função é usada nas funções referentes à distância para a base do jogador e à distância para a base do oponente.
+
+A função que avalia a proximidade de bases para a principal do jogador retorna o valor 0 caso a base avaliada seja uma ilha. Caso contrário, retorna a negação\footnote{A negação fuzzy se dá pela função: $\neg(x) = 1 - x$.} da função $dist$ aplicada à distância entre as duas bases. Desta forma, a função tende a retornar 1 à medida em que a distância entre as bases tende a 0.
+
+A função que avalia a proximidade de bases para a principal do oponente segue uma lógica similar, porém com valores opostos. Caso o oponente não seja conhecido, as distâncias entre as bases não podem ser verificadas, então o retorno é 1. Isto é, não há efeitos negativos no potencial da base avaliada. Caso a base avaliada esteja em uma ilha, o retorno também é 1. Caso a base seja a natural ou a principal do opoenente, o retorno é 0, pois elas são as bases mais próximas da base principal do oponente. No caso padrão, a função retorna o valor de $dist$ aplicada à distância entre a base avaliada e a principal do oponente. Desta forma, quanto menor a distância da base avaliada para a base inimiga, menor o potencial dela.
+
+A função de pertinência relativa à quantidade de jazidas foi modelada de acordo com o que foi encontrado nos mapas das competições. Na maioria dos mapas, as bases principais possuem 9 jazidas de minérios, suas naturais possuem 8 e as outras bases possuem 7 jazidas. Já que, quanto maior o número de jazidas, mais trabalhadores podem trabalhar paralelamente para recoltamento de minérios, a função descreve uma sigmóide cujo valor tende a 1 conforme o número de jazidas aumenta.
+
+A quantidade de minérios é avaliada de maneira similar, tendo em vista que a maior parte das bases principais possuem 13.500 minérios espalhados em 9 jazidas, cada uma com 1.500 minérios. Ela também descreve uma sigmóide que tende a 1 à medida que a quantidade de minérios numa base aumenta.
+
+A quantidade de gás vespeno numa base é avaliada linearmente com um mínimo de 0,5, pois a sua influência na escolha de bases é baixa. Isto se deve pelo fato da coleta de gás vespeno ser muito alta em relação à coleta de minérios e à taxa com a qual o gás é usado durante uma partida.
+
+As funções de pertinência são:
+
+\begin{figure}[h]
+	\centering
+	\subfloat[Gráfico da função $dist$] {
+		\begin{tikzpicture}
+			\begin{axis}[
+				width=7cm,height=5cm,
+				xtick={0,1,...,4},
+				xlabel={\footnotesize{Distância Terrestre entre bases ($10^3$)}},
+				xmin=0,
+				xmax=4,
+				legend style={at={(0,0.75)},anchor=south west}]
+
+				\addplot[samples=200, color={distance}] {((tanh(1.5*x-3)+1)/2)};
+				\addlegendentry{dist}
+			\end{axis}
+		\end{tikzpicture}
+	}
+	\qquad
+	\subfloat[Gráfico da função de pertinência das jazidas] {
+		\begin{tikzpicture}
+			\begin{axis}[
+				width=7cm,height=5cm,
+				xtick={4,5,...,9},
+				xlabel={\footnotesize{Quantidade de jazidas de minérios}},
+				xmin=4,
+				xmax=9,
+				legend style={at={(0,0.75)},anchor=south west}]
+
+				\addplot[samples=200, color={patches}][domain=0:10] {( ( tanh( 0.5*x - 2.5) + 1 )/2 )^3};
+				\addlegendentry{jazidas}
+			\end{axis}
+		\end{tikzpicture}
+	}
+	\qquad
+	\subfloat[Gráfico da função de pertinência dos minérios] {
+		\begin{tikzpicture}
+			\begin{axis}[
+				width=7cm,height=5cm,
+				xtick={1,2,...,12},
+				xlabel={\footnotesize{Quantidade de minérios nas jazidas ($10^3$)}},
+				xmin=0,
+				xmax=12,
+				legend style={at={(0,0.75)},anchor=south west}]
+
+				\addplot[samples=200, color={minerals}][domain=0:15] {( tanh( 0.3*x - 1.8) + 1 )/2};
+				\addlegendentry{minerios}
+			\end{axis}
+		\end{tikzpicture}
+	}
+	\qquad
+	\subfloat[Gráfico da função de pertinência do gás] {
+		\begin{tikzpicture}
+			\begin{axis}[
+				width=7cm,height=5cm,
+				xtick={0,1,...,6},
+				ytick={0,0.5,1},
+				ymin=-0.1,
+				xlabel={\footnotesize{Quantidade de gás nos gêiseres ($10^3$)}},
+				xmin=0,
+				xmax=6,
+				legend style={at={(0,0.75)},anchor=south west}]
+
+				\addplot[samples=200, color={gas}][domain=0:7] {min(x/10 + 0.5,1)};
+				\addlegendentry{gas}
+			\end{axis}
+		\end{tikzpicture}
+	}
+	\caption{Gráficos das funções de pertinência que auxiliam a classificação das bases.}
+	\label{fig:graphs}
+\end{figure}
+
+\begin{equation*}
+	\displaystyle
+	dist(x) = \frac{tanh(1.5x - 3) + 1}{2}
+\end{equation*}
+
+\begin{equation*}
+	\displaystyle
+	dist_{principal}(b) = \left\{
+		\begin{array}{l l}
+		0 & , \text{b.ilha(})\\
+		1 - dist(\text{jogador.natural.distancia(b)}) & , \text{ caso contrário}
+		\end{array}\right.
+\end{equation*}
+
+\begin{equation*}
+	\displaystyle
+	dist_{oponente}(b) = \left\{
+		\begin{array}{l l}
+		1 & ,
+		\begin{array}{l}
+		\text{b.ilha()} \lor\\
+			\neg \text{ oponente.conhecido()}
+		\end{array}\\
+		0 & , 
+		\begin{array}{l}
+		b = \text{oponente.principal()} \lor\\
+		b = \text{oponente.natural()}
+		\end{array}\\
+		dist(\text{oponente.natural.distancia(b)}) & , \text{ caso contrário}		
+		\end{array}\right.
+\end{equation*}
+
+\begin{equation*}
+	\displaystyle
+	\text{jazidas}(b) = \left(\frac{tanh\left(\frac{\text{b.jazidas()}-5}{2}\right) + 1}{2}\right)^3
+\end{equation*}
+
+\begin{equation*}
+	\displaystyle
+	\text{minerios}(b) = \frac{tanh\left(0.3\left(\text{b.minerios()} - 6\right)\right) + 1}{2}
+\end{equation*}
+
+\begin{equation*}
+	\displaystyle
+	\text{gas}(b) = min\left\{\frac{b.gas()}{10} + 0.5, 1\right\}
+\end{equation*}
+
+\begin{equation*}
+	\displaystyle
+	\text{potencial}(b) = (dist_{principal}(b) \times dist_{inimigo}(b))(minerios(b) \times jazidas(b) \times gas(b))
+\end{equation*}
+
+Como podem haver mapas com mais de duas posições iniciais, utiliza-se a média das distâncias entre a base em questão e as posições iniciais em que o inimigo pode estar.
+
+\section{Ministério de Minas e Trabalho}
+O Ministério de Minas e Trabalho foi organizado de forma que ele seja uma coleção de agentes, relacionados a cada trabalhador. Cada agente está agrupado de acordo com a jazida que está coletando. Estas jazidas, por sua vez, estão agrupadas de acordo com a base que está mais próxima a elas.
+
+Dessa forma, existem duas formas de otimizar a mineração. Uma no que diz respeito à quantidade de trabalhadores em cada jazida de uma base, e a outra na quantidade de trabalhadores por base que o jogador possui.
+
+No caso de teste, nos focaremos na otimização de trabalhadores por minérios, já que não passaremos da fase de abertura do jogo.
+
+\section{Ministério de Infraestrutura}
+O Ministério de Infraestrutura tem como um de seus objetivos escolher a posição onde as estruturas serão construídas. Para calcular o posicionamento, escolhemos o método \emph{potential fields} que atribui cargas a alguns elementos do jogo, como obstáculos ou unidades, e calcula o valor potencial dos blocos a partir da influência destes elementos no bloco analisado.
+
+Inicialmente, é necessário definir quais elementos receberão carga. Aqui, usaremos cargas positivas como atrativas e cargas negativas como repulsivas. Como visto no capítulo anterior, os pontos no perímetro da região devem receber carga atrativa, pois o objetivo é criar uma muralha de estruturas em uma determinada base. Esse perímetro é calculado segundo a técnica de \citeonline{perkins10}. A influência do perímetro sobre um bloco de construção é determinada pela distância do perímetro ao bloco. Como o perímetro é dado em segmentos de reta, essa distância é calculada de acordo com a projeção do ponto correspondente ao bloco em cada um dos segmentos de reta (Figura~\ref{fig:dist}) e escolhendo menor distância entre o ponto projetado e o ponto correspondente ao bloco. Após esse cálculo, o valor da influência do perímetro é determinado por uma função de potencial. A função de potencial usada por este trabalho é:
+
+\begin{equation}
+	\displaystyle
+	potencial(q,p_c,p_b)=\frac{q}{dist(p_c,p_b)^2}
+	\label{eq:perim}
+\end{equation}
+
+Onde $q$ é a carga do objeto, $p_c$ é a posição do objeto carregado no mapa e $p_b$, a posição do bloco em questão. A carga dos pontos do perímetro é igual a $400$. Como um bloco de construção ocupa um quadrado de $32 \times 32$ pixels, utiliza-se a média dos valores correspondentes a cada um dos quatro cantos que esse bloco ocupa no mapa. Essa técnica de utilizar a média das influências sobre os quatro pontos será usada por todos os outros elementos com carga.
+
+Outros elementos que receberão carga são os recursos. Para não colocar construções que bloqueiem sua coleta, eles recebem carga repulsiva. Como cada recurso possui áreas diferentes, sua carga será proporcional à sua área. Ao contrário do perímetro, cada recurso possui apenas um ponto fixo no mapa, de forma que para calcular a influência, basta verificar a distância até o recurso. Cada recurso da região é levado em consideração, ao contrário do mais próximo. A carga das jazidas de minérios é igual a $-13000$, e a carga dos gêiseres de gás vespeno é igual a $-52000$.
+
+Além desses, os gargalos também receberão carga repulsiva. Gargalos possuem uma posição e uma largura, dada em pixels. A influência deles irá depender desses dois fatores, de forma que a carga para os gargalos é igual a $-1000l$, onde $l$ é a largura do gargalo.
+
+Além de levar em conta esses fatores, o valor do bloco de construção é limitado pelo intervalo $[-80,80]$ inicialmente e pode receber penalidades que o façam superar esse intervalo:
+\begin{itemize}
+ 	\item $-160$, caso o modo de busca por posicionamento seja tradicional, ao invés de criação de muralhas, e o bloco esteja fora da gosma;
+ 	\item $-80$, caso o bloco não seja construível ou esteja dentro de alguma alocação feita anteriormente;
+ \end{itemize}
+
+Sabe-se que toda muralha zerg necessita de duas \emph{hatcheries}, uma servindo como base e outra servindo como \emph{macro hatch}\footnote{\emph{Hatchery} criada apenas para produção de unidades, ao invés de servir como depósito de recursos.}, como mostrado na Figura~\ref{fig:zwall}. Tendo em vista isso, e que a maior parte das \emph{macro hatches} ficam na região mais distante, o que se propõe é iniciar a alocação da muralha com o posicionamento de uma \emph{hatchery} utilizando todas essas cargas e funções. Em seguida, utilizar uma carga atrativa para base ao invés do perímetro, cujo valor é igual a $20000$. Utiliza-se o ponto central da estrutura como referência. Além disso, todas as outras cargas também são utilizadas e somadas às devidas penalidades por construtibilidade, para que o algoritmo complete a muralha.
+
+\begin{figure}
+	\centering
+	\subfloat{\includegraphics[scale=0.4]{Imagens/zwall3.jpg}}
+	\qquad
+	\subfloat{\includegraphics[scale=0.4]{Imagens/zwall2.jpg}}
+	\qquad
+	\subfloat{\includegraphics[scale=0.4]{Imagens/zwall1.png}}
+	\caption[Muralhas Zerg em vários mapas.]{Muralhas Zerg em vários mapas. Aqui é possível observar a existência de duas \emph{hatcheries} em todas as muralhas. Há também uma tendência de utilizar estruturas de defesa para preencher as brechas existentes na muralha.}
+	\label{fig:zwall}
+\end{figure}
+
+Para calcular o valor do posicionamento de uma estrutura, será utilizada a soma dos valores de influência de cada um dos blocos dentro da área da estrutura. A partir disso, deve-se seguir o seguinte algoritmo para a alocação de muralhas:
+
+\begin{enumerate}
+	\item Alocar uma \emph{hatchery}, ou estrutura $4\times3$, no melhor posicionamento dentro da região da base escolhida, utilizando as funções mencionadas acima.
+	\item Até que a base esteja adjacente a alguma estrutura alocada na muralha, repita:
+	\begin{enumerate}
+		\item Para cada área que estruturas podem ocupar (para Zergs, isto significa, efetivamente, $\{2\times2, 3\times2\}$):
+		\begin{enumerate}
+			\item Achar o melhor posicionamento possível para a área que seja adjacente à última estrutura alocada, usando apenas a base como elemento carregado.
+		\end{enumerate}
+		\item Selecionar o melhor valor de todas as áreas e alocar na muralha.
+	\end{enumerate}
+\end{enumerate}
+
+Deixando a alocação de estruturas mais genérica, o sistema de tomada de decisões poderá tentar otimizar as brechas, o custo ou o tempo de construção da muralha, tendo em vista as áreas alocadas.
+
+Através dos direcionamentos tomados, conseguimos aplicar o modelo Cerebrate no jogo StarCraft, utilizando a raça Zerg como foco do trabalho. No próximo capítulo, apresentaremos experimentos práticos para validação do modelo.

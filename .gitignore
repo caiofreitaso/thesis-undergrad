@@ -1,0 +1,13 @@
+*.pdf
+
+*.aux
+*.bbl
+*.blg
+*.bst
+*.def
+*.lo*
+*.out
+*.toc
+
+*.sty
+*.cls

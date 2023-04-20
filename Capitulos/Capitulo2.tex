@@ -1,0 +1,477 @@
+% Capítulo 2
+\chapter{Modelo organizacional de \emph{game AI} para RTS}
+
+\begin{figure}[ht]
+	\centering
+	\scalebox{0.7} {
+		\begin{tikzpicture}[->, shorten >=1pt,auto,ultra thick]
+			\tikzstyle{vertex}=[circle,fill=black!20,minimum size=3cm,node distance=4cm]
+			\node[vertex,align=center] (ind) {Indústria};
+			\node[vertex,fill=black!30,align=center] (head) [above of=ind] {Cerebrate};
+			\node[vertex,align=center] (tec) [right of=ind] {Tecnologia};
+			\node[vertex,align=center] (inf) [left of=ind] {Infraestrutura};
+			\node[vertex,align=center] (min) [below of=inf] {{Minas e}\\Trabalho};
+			\node[vertex,fill=black!10,align=center] (eco) [below of=tec] {Economia};
+			\node[vertex,align=center] (def) [below of=eco] {Defesa};
+			\node[vertex,align=center] (int) [left of=def] {Inteligência};
+			\path
+				(head) edge [bend left=0] node { } (ind)
+				(ind) edge [bend left=0] node { } (min)
+				(ind) edge [bend left=10] node { } (inf)
+				(inf) edge [bend left=10] node { } (ind)
+				(ind) edge [bend left=0] node { } (eco)
+				(ind) edge [bend right=10] node { } (def)
+				(ind) edge [bend left=0] node { } (int)
+				(ind) edge [bend left=10] node { } (tec)
+				(tec) edge [bend left=10] node { } (ind)
+				(inf) edge [bend left=40] node { } (tec)
+				(inf) edge [bend left=0] node { } (min)
+				(min) edge [bend left=0] node { } (int)
+				(inf) edge [bend left=10] node { } (int)
+				(def) edge [bend left=0] node { } (int)
+				(tec) edge [bend left=0] node { } (eco)
+				(inf) edge [bend left=0] node { } (eco)
+				(tec) edge [bend right=10] node { } (int)
+				(def) edge [bend left=0] node { } (int)
+				(def) edge [bend right=10] node { } (min);
+		\end{tikzpicture}
+	}
+	\caption[Fluxo de comunicação dos agentes.]{Fluxo de comunicação dos agentes. As setas apontam do requisitador ao seu alvo. Círculos escuros indicam os ministérios que controlam diretamente as unidades dentro do jogo. O círculo claro indica que o ministério da economia funciona apenas como sensor para os outros ministérios. O Cerebrate é o conjunto de todos os ministérios e funciona como o oráculo do ministério da indústria, dando a abertura a ser usada para ele.}
+	\label{fig:modelo}
+\end{figure}
+
+Diversos trabalhos foram publicados com o foco em StarCraft e vários robôs foram criados para ele. Porém, poucos trabalham apresentam um modelo completo de funcionamento de uma \emph{game AI} voltada ao jogo. Um destes é o trabalho de \citeonline{weberm11}. Neste artigo, eles descrevem a arquitetura do EISBot, que fora baseado em um \emph{framework} integrado de agentes para o jogo \emph{Wargus}. Esta arquitetura é composta de cinco gerenciadores que dividem o \emph{gameplay} em subproblemas. O gerenciador de estratégias é responsável pela seleção de estratégias e pela determinação de tempos de ataque. O gerenciador de renda controla os trabalhadores, a coleta de recurso e a expansão econômica. O gerenciador de construções se responsabiliza pelos pedidos de construção de estruturas. O gerenciador tático executa as tarefas de combate e os comportamentos de microgerenciamento. E o gerenciador de reconhecimento implementa comportamentos de patrulha.
+
+Foi observado que um agente fica sobrecarregado de tarefas distintas, sendo este o gerenciador de estratégias. Este agente deve modelar o oponente, inferir estratégias e definir os tempos de ataque da \emph{game AI}. Para propor um novo modelo mais distribuído, observamos a divisão de tarefas de gerenciamento feita pelos governos atuais. Eles são compostos por ministérios, que se encarregam de gerenciar atividades distintas, porém interdependentes, de um país. Para este trabalho foram escolhidos seis ministérios e uma Agência de Inteligência, que apesar de não ser um ministério de fato, é uma entidade cuja área de trabalho é independente das áreas dos ministérios e que os serviços deles dependem da sua atuação. Os ministérios escolhidos estão brevemente descritos na Tabela~\ref{tab:departments} e suas interações estão expostas na Figura~\ref{fig:modelo}.
+
+\begin{table}[h]
+	% Título de tabelas sempre aparecem antes da tabela
+	\center
+	{
+		\begin{tabular}{l|l}
+			\hline
+			\textbf{Departamento}						 & \textbf{Responsabilidade}\\
+			\hline
+			Ministério de Minas e do Trabalho			 & Administração dos trabalhadores\\
+			Ministério da Economia						 & Monitoramento dos recursos\\
+			Ministério de Infraestrutura				 & Construção de estruturas\\
+			Ministério da Indústria						 & Administração da ordem de construção\\
+			Ministério da Defesa						 & Administração do exército\\
+			Ministério de Tecnologia					 & Pesquisa de novas tecnologias\\
+			Agência de Inteligência Militar & Coletar dados do jogador inimigo\\
+			\hline
+		\end{tabular}
+	}
+	\caption{Agentes do sistema e suas responsabilidades}
+	\label{tab:departments}
+\end{table}
+
+Como jogos de estratégia em tempo real possuem fases, este modelo também foi modelado para incorporar estas fases no desenrolar das partidas. O modelo proposto possui duas etapas de funcionamento: \emph{ação} e \emph{reação}. Elas são espelhadas nos conceitos existentes de abertura e meio-jogo. A ação é a fase em que uma abertura é escolhida e executada. A escolha de aberturas se dá por um produto da análise do mapa com um fator aleatório inicial, a passividade da inteligência artificial.
+
+Na fase de ação, a \emph{game AI} verifica as possibilidades referentes às aberturas que podem ser escolhidas no início do jogo. Essas aberturas são selecionadas previamente, a partir das estratégias mais conhecidas, e classificadas de acordo com o grau de agressividade e com a segurança que existe ao executá-las de acordo com um dos tipos de distâncias: (a) distância terrestre entre as principais, (b) distância aérea entre as principais.
+
+Para classificar as estratégias desta maneira, cria-se duas funções de pertinência referentes a cada uma das aberturas, uma para a distância à qual está relacionada e outra para a agressividade. A seleção de quais aberturas poderão ser utilzadas pelo sistema e a criação de suas respectivas funções devem ser feitas previamente, no estudo de caso do modelo para o jogo escolhido. As funções relacionadas às aberturas devem ser modeladas com o auxílio de algum especialista no jogo. A escolha da abertura numa partida é feita baseando-se então nas combinações das funções de pertinência e, a partir delas, escolhe-se aleatoriamente uma entre as duas maiores.
+
+Durante a fase de ação, o sistema apenas executará a abertura, que é uma ordem de construção. Assim, apenas as funcionalidades dos ministérios extritamente necessárias serão utilizadas durante essa fase.
+
+Após a execução da abertura, a inteligência artificial passa para a outra fase da execução, a reação. Nesta fase, os ministérios ativam as funcionalidades que estavam dormentes durante a fase anterior. Os ministérios coletam dados referentes às suas responsabilidades e procuram agir com o foco de expandir-se economicamente e reagir aos movimentos do oponente. Essa expansão se dará com a construção de novas bases em locais estratégicos do mapa, além da produção de um exército e de estruturas de defesa que consigam proteger efetivamente todas as bases. Como todas as principais possuem uma natural, esta é a primeira escolha de expansão. A partir dela, o processo de decisão passa a ser mais complexo, sendo necessária a criação de uma função que consiga expressar as motivações de um jogador humano ao escolher tais expansões.
+
+Para facilitar a criação de um método que reaja a um grupo de unidades inimigas, são designados papéis para as unidades (tabela~\ref{tab:roles}) de forma que, quando a \emph{game AI} detecta uma unidade que cumpra um determinado papel no exército inimigo, comece a produzir unidades que combatem efetivamente este papel. Os papéis das unidades são usados pelo ministério da defesa e pela agência de inteligência.
+\begin{table}[h]
+	% Título de tabelas sempre aparecem antes da tabela
+	\center
+	{
+		\begin{tabular}{l|l}
+			\hline
+			\textbf{Papel}			& \textbf{Significado}\\
+			\hline
+			\emph{Large-scale}		& Unidades que formam o núcleo do exército\\
+			\emph{Anti-air}			& Unidades que atacam unidades aéreas\\
+			\emph{Harass}			& Unidades rápidas e com poucos pontos de vida\\
+			\emph{Area of Effect}	& Unidades que causam dano em área\\
+			\emph{Siege}			& Unidades que possuem longo alcance\\
+			\emph{Caster}			& Unidades que possuem habilidades especiais ofensivas\\
+			\emph{Stealth}			& Unidades que podem ficar invisíveis\\
+			\emph{Air}				& Unidades aéreas\\
+			\emph{Tank}				& Unidades que possuem alta durabilidade\\
+			\emph{Detector}			& Unidades que expõem unidades invisíveis\\
+			\emph{Transport}		& Unidades de transporte\\
+			\emph{No Ground Attack}	& Unidades aéreas incapazes de atacar unidades terrestres\\
+			\hline
+		\end{tabular}
+	}
+	\caption{Papéis das unidades}
+	\label{tab:roles}
+\end{table}
+
+
+\section{Ministério de Minas e do Trabalho}
+O ministério de minas tem como funções:
+\begin{itemize}
+	\item Manter os trabalhadores minerando;
+	\item Manter a saturação de trabalhadores das bases em níveis adequados.
+\end{itemize}
+
+\subsection{Atuação dos mineradores}
+Já que o principal foco do ministério é fazer os trabalhadores minerarem, o agente deve fazer uma relação dos recursos disponíveis nas bases ocupadas pelo jogador com os seus trabalhadores. Cada recurso deve possuir uma \emph{flag} que ativa quando há um trabalhador minerando e desativa caso não haja. Esse atributo servirá para definir os estados dos outros trabalhadores.
+
+\begin{figure}[h]
+	\centering
+	\scalebox{0.8} {
+		\begin{tikzpicture}[->,shorten >=1pt,auto,thick]
+			\tikzstyle{vertex}=[circle,fill=black!25,minimum size=3cm,node distance=5cm]
+			\node[vertex,fill=white,minimum size=0cm] (start) { };
+			\node[vertex,align=center,node distance=2.2cm] (a) [right of=start] {\textbf{Esperando}};
+			\node[vertex,align=center] (b) [right of=a] {Minerando};
+			\node[vertex,align=center] (c) [right of=b] {Retornando};
+			\path
+				(start) edge [bend left=0] node { } (a)
+				(a) edge [bend left=40] node {\footnotesize{Jazida livre}} (b)
+				(b) edge [bend left=40] node {\footnotesize{Minério em mãos}} (c)
+				(c) edge [bend left=30] node {\footnotesize{Sem minério}} (a);
+		\end{tikzpicture}
+	}
+	\caption{Máquina de estados dos mineradores}
+	\label{fig:minestate}
+\end{figure}
+
+Além disso, cada campo de minérios deve ter no máximo um número $S$ de trabalhadores, que revezam na execução da tarefa. Enquanto um deles retorna com o minério que coletou, o outro começa a minerar. Este trabalho é feito com uma máquina de três estados (Figura~\ref{fig:minestate}) para cada trabalhador:
+
+\begin{itemize}
+	\item \textbf{Esperando}: estado inicial dos trabalhadores, no qual ele espera até que a jazida à qual ele está relacionado esteja livre.
+	\item \textbf{Minerando}: estado no qual o trabalhador ativa a \emph{flag} de ocupado do campo e começa a minerá-lo.
+	\item \textbf{Retornando}: nesse estado, o trabalhador desativa a \emph{flag} e retorna o minério para a estrutura de coleta de recursos.
+\end{itemize}
+
+\subsection{Remanejamento dos trabalhadores}
+Em StarCraft, o jogador começa o jogo com uma base e quatro trabalhadores e, caso deseje partir para um jogo longo, deve progredir de forma a expandir sua economia com a construção de novas bases e mais trabalhadores. Cada uma das bases, por sua vez, possui uma quantidade de jazidas de minérios. Devido às características do jogo, essas jazidas podem ser mineradas de maneira ótima com 2 ou 3 trabalhadores por jazida.
+
+Além disso, o jogador adversário possui um exército que pode estar se movimentando pelo mapa, podendo aproximar-se de alguma base. Esse movimento aumenta ou diminui o risco correspondente à mineração de uma base conforme o exército se aproxima ou se afasta dessa base, respectivamente.
+
+Com a criação de uma nova base, a exaustão de uma jazida de minérios ou um risco elevado em alguma base já estabelecida, é necessário transferir trabalhadores entre as bases a fim de aumentar a renda de minérios. Porém essa transferência acarreta em uma perda temporária de lucro, sendo necessário, portanto, minimizar essa perda.
+
+Esse problema foi modelado da seguinte forma: dados um ponto de saturação S; um conjunto de bases $B = \{1, ... , n\}$, onde cada base $i$ possui uma quantidade de trabalhadores $w_i$, uma quantidade de jazidas de minérios $m_i$ e um risco $r_i$; e uma matriz de distâncias $D_{n,n}$ que contém as informações das distâncias entre as bases, a solução se dá em uma matriz $T_{n,n}$, tal que cada elemento $t_{ij}$ informa quantos trabalhadores irão da base $i$ à base $j$.
+
+Essa solução deve obedecer a duas restrições: nenhuma base pode transferir mais trabalhadores que a quantidade inicial, isto é, a soma de uma linha qualquer $T_i$ deve ser igual a $w_i$, e nenhuma base pode transferir trabalhadores para uma base que esteja trabalhando no seu limite de saturação, $S m_i$. Isto significa que bases podem ficar com mais trabalhadores que podem comportar se não houver nenhuma opção para onde mandar o excesso. A partir disso, deve-se procurar minimizar a soma das distâncias percorridas por cada um dos trabalhadores, ao mesmo tempo que deve-se minimizar a soma dos riscos correspondentes à mineração em todas as bases após a transferência.
+
+De forma mais formal, o problema constitui em:
+\begin{equation*}
+	\displaystyle
+	\begin{array}{l l}
+		\text{Minimizar } & \quad \text{custo}(x) = \mathlarger{\sum}_{i = 1}^n \mathlarger{\sum}_{j = 1}^n t_{ij}d_{ij} + \lambda\left(\mathlarger{\sum}_{j = 1}^n \text{max}\left\{0,\mathlarger{\sum}_{i = 1}^nt_{ij} - S m_i\right\}\right)\\
+		\text{Minimizar } & \quad \text{risco}(x) = \mathlarger{\sum}_{j = 1}^n r_j \mathlarger{\sum}_{i = 1}^n  t_{ij}\\
+		\text{Sujeito a:} & \quad\\
+		&\mathlarger{\sum}_{j = 1}^n t_{ij} = w_i, \forall i \in \{1, ... , n\}\\
+		&\left\{
+			\begin{array}{l l}
+				\mathlarger{\sum}_{i = 1}^n t_{ij} - t_{jj} = 0 & \quad, t_{jj} \geq S m_j \\
+				\mathlarger{\sum}_{i = 1}^n t_{ij} \leq S m_j& \quad , t_{jj} < S m_j
+			\end{array}
+			, \forall j \in \{1, ... , n\}
+		\right.\\
+		&t_{ij} \in \mathbb{N}_0, \forall i,j \in \{1, ... , n\}
+	\end{array}
+\end{equation*}
+
+Onde $\lambda$ é a penalidade por trabalhador que uma base recebe por estar operando além de sua capacidade, após a transferência.
+
+Apesar do modelo de remanejamento ter sido criado com um foco em StarCraft, ele pode ser aplicado em outros RTS que possuam um paradigma que comporte a ideia de um conjunto de coletores em uma localização recoltando um tipo de recurso, como Age of Empires.
+
+\section{Ministério da Economia}
+A função do ministério da economia é monitorar os gastos e a renda do jogador. Para isso, ele precisa saber a renda média dos últimos \emph{frames} e os gastos previstos para cada estrutura de criação de unidades.
+
+Além disso, ele precisa manter um controle sobre o que está sendo reservado para alguma produção, como estruturas ou tecnologias. Esses gastos devem entrar em uma lista de orçamentos e sairão quando o projeto do orçamento for iniciado. Como o ministério precisa informar que existem gastos enfileirados, os outros agentes precisam pedir a informação sobre os recursos atuais ao ministério da economia, ao invés de olhar diretamente nos recursos do jogador.
+
+\section{Ministério de Infraestrutura}
+As funções do ministério de infraestrutura são:
+\begin{itemize}
+	\item Posicionar as futuras estruturas.
+	\item Selecionar trabalhadores e mandar construir as estruturas necessárias.
+\end{itemize}
+
+Similarmente ao ministério de minas, o ministério de infraestrutura recebe o controle de trabalhadores que irão construir as estruturas solicitadas pela ordem de construção e atribui a eles uma máquina de estados finita, porém antes precisa posicionar a futura estrutura em um lugar propício. Após a construção, caso seja uma estrutura de criação de unidades, o ministério as guarda em um conjunto separado para cada tipo de estrutura.
+
+\subsection{Atuação dos construtores}
+O funcionamento dessa máquina de estados finita é semelhante à máquina dos mineradores. Porém, ao contrário destes, os construtores devem ter medo de unidades militares inimigas. Eles devem cancelar a construção quando virem que estão sob ataque, pois, na maioria dos RTS, cancelar a construção de uma estrutura retorna parte da quantia gasta.
+
+A cada construtor são atribuídos uma estrutura e um local de construção. Essas informações são guardadas para que o construtor saiba aonde deve ir, e para que o ministério consiga saber quais estruturas foram canceladas ou destruídas e possa fazer um pedido de reconstrução ao ministério da indústria.
+
+\begin{figure}[h]
+	\centering
+	\scalebox{0.8} {
+		\begin{tikzpicture}[->,shorten >=1pt,auto,thick]
+			\tikzstyle{vertex}=[circle,fill=black!25,minimum size=2.5cm,node distance=5cm]
+			\node[vertex,fill=white,minimum size=0cm] (start) { };
+			\node[vertex,align=center,node distance=2.2cm] (a) [right of=start] {Movendo};
+			\node[vertex,align=center] (b) [right of=a] {Construindo};
+			\node[vertex,align=center] (c) [below of=a] {Fugindo};
+			\node[vertex,align=center] (d) [below of=b] {\textbf{Terminado}};
+			\path
+				(start) edge [bend left=0] node { } (a)
+				(a) edge [bend left=40] node {\footnotesize{Na posição de construção}} (b)
+				(a) edge [bend left=15] node {\footnotesize{Sendo atacado}} (c)
+				(b) edge [bend left=15] node {\footnotesize{Sendo atacado}} (c)
+				(c) edge [bend left=15] node {\footnotesize{Fora de perigo}} (a)
+				(b) edge [bend left=20] node {\footnotesize{Construção concluída}} (d);
+		\end{tikzpicture}
+	}
+	\caption{Máquina de estados dos construtores}
+	\label{fig:buildstate}
+\end{figure}
+
+Além disso, os construtores executam seu trabalho seguindo uma máquina de estados finita (Figura~\ref{fig:buildstate}) com os seguintes estados:
+
+\begin{itemize}
+	\item \textbf{Movendo}: estado inicial dos construtores, no qual ele move-se até o local de construção.
+	\item \textbf{Construindo}: estado no qual o construtor está a construir sua estrutura.
+	\item \textbf{Fugindo}: nesse estado, o construtor cancela qualquer ordem que tinha e procura fugir dos atacantes.
+	\item \textbf{Terminado}: aqui, o construtor é dispensado do serviço, podendo voltar à coleta de recursos. O ministério de infraestrutura mantém, entretanto, a estrutura construída.
+\end{itemize}
+
+\subsection{Posicionamento de estruturas}
+Os mapas da maior parte dos jogos de estratégia em tempo real são representados como grades, onde cada bloco dessa grade pode ser chamado de bloco de construção e estruturas possuem uma certa área que ocupam nessa grade. Além dessa grade, há também uma grade com maior precisão que modela o espaço de movimentação dos personagens no mapa. Essas duas representações podem ser observadas em jogos como Age of Empires e StarCraft.
+
+Para avaliar o posicionamento de uma estrutura, será utilizado um novo método que utiliza o conceito de campos potenciais (\emph{potential fields}), que foram usados com sucesso em vários jogos para resolver problemas de \emph{pathfinding} \cite{sajjad11} \cite{hagelback12}. Essa técnica se baseia em atribuir \emph{cargas} a alguns elementos do jogo de forma que esses elementos podem ser atrativos ou repulsivos. Ao colocar uma carga atrativa no destino de uma unidade e carga repulsiva nos obstáculos, por exemplo, é possível fazer um método simples que consegue chegar ao destino evitando os obstáculos. O uso dessa técnica para determinar o posicionamento de estruturas necessita de uma pequena mudança na mentalidade, pois o destino ainda não é conhecido.
+
+Dependendo de cada jogo, os elementos que receberiam carga variam. Em jogos como Age of Empires e StarCraft, o posicionamento das estruturas vai depender se haverá ou não necessidade de criação de uma muralha de estruturas para impedir o movimento das unidades inimigas em algum gargalo. Em Age of Empires 2, é comum a criação de muralhas em gargalos criados por florestas, especialmente gargalos que funcionam como potenciais ``portas dos fundos''. Em StarCraft, essa abordagem é usada também por cada raça, mas em situações diferentes. Os Protoss fazem uma muralha em sua base a fim de impossibilitar a destruição de uma expansão rápida e a passagem de unidades inimigas pela sua natural sem que levem algum tipo de retaliação; os Terran o fazem para defender sua base principal de \emph{rushes} Zerg, impedindo parcialmente ou completamente a passagem de unidades; e os Zerg o fazem com o mesmo intuito dos Protoss, apenas em um período mais tardio dentro do jogo.
+
+Como visto nas figuras~\ref{fig:aoewall} e~\ref{fig:scbwwall}, a posição das estruturas em muralhas tende a se aproximar da região periférica da base, ou de algum gargalo, como é o caso das muralhas dos Terran. Isso implica em dizer que, para a criação de muralhas, as bordas são atrativas, então devem receber carga equivalente.
+
+Porém, ao analisar o posicionamento de estruturas que não fazem parte de muralhas, é possível perceber que há uma repulsão por gargalos, já que elas devem oferecer espaço livre para as unidades navegarem. Algumas vezes, como o caso dos Terran em StarCraft, há uma repulsão até mesmo por outras estruturas, uma vez que o espaço entre elas pode impedir as unidades de navegar. Além disso, recursos naturais repelem estruturas, pois as estruturas não podem impedir os trabalhadores de coletá-lo. Essas características devem ser quantificadas e verificadas de acordo com o jogo em questão. Em Age of Empires 2, a distância entre um recurso e a estrutura de entrega de recurso (como uma \emph{town center}) normalmente é mínima, sendo necessário um valor baixo para a carga de recursos, mas em StarCraft a distância mínima entre recurso e base (a única estrutura de entrega de recursos do jogo) é alta e pode comportar estruturas grandes dentro dessa brecha, o que implica um valor alto para a carga dos recursos.
+
+\begin{figure}[h]
+	\centering
+	\includegraphics[scale=0.35]{Imagens/aoe-wall.jpg}
+	\caption{Exemplo de muralha em Age of Empires}
+	\label{fig:aoewall}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\subfloat[Muralha Protoss]{\includegraphics[scale=0.45]{Imagens/PwDestination9.png}}
+	\qquad
+	\subfloat[Muralha Terran] {\includegraphics[scale=0.45]{Imagens/TwPython1.png}}
+	\qquad
+	\subfloat[Muralha Zerg] {\includegraphics[scale=0.45]{Imagens/ZwDestination12.png}}
+	\caption{Muralhas de cada raça de StarCraft}
+	\label{fig:scbwwall}
+\end{figure}
+
+Algumas estruturas também podem fugir de todos esses conceitos, como estruturas de suprimentos. Elas, quando não estão em posições de muralha, estão em lugares distantes de gargalos e possíveis focos de ataque, já que representam também um outro recurso dentro do jogo. Isso implica que ao posicionar estruturas de suprimentos, deverão ser utilizados outros valores para cada um dos elementos que podem receber carga.
+
+Como há duas maneiras distintas de posicionar estruturas, a opção escolhida procura preencher primeiramente as muralhas, e, somente em seguida, posiciona as estruturas de forma mais tradicional.
+
+Além de tentar achar o posicionamento das estruturas da muralha, outra coisa que deve ser considerada é o espaçamento entre as estruturas. Em StarCraft, todas as estruturas possuem tamanho de construção e tamanho real, isto é, o tamanho que a estrutura ocupa na grade de construção, e outro tamanho na grade de movimentação. A partir desses tamanhos é possível calcular a brecha que existe em cada um dos lados de uma estrutura, como pode ser visto na Figura~\ref{fig:gap}. Brechas negativas significam, entretanto, que a estrutura bloqueia a passagem de uma região além do seus limites.
+
+\begin{figure}[H]
+	\centering
+	\subfloat[Construções Protoss]{\includegraphics[scale=0.35]{Imagens/Protoss_buildings_gaps.jpg}}
+	\qquad
+	\subfloat[Construções Terran] {\includegraphics[scale=0.35]{Imagens/Terran_buildings_gaps.jpg}}
+	\qquad
+	\subfloat[Construções Zerg] {\includegraphics[scale=0.35]{Imagens/Zerg_buildings_gaps.jpg}}
+	\caption{Brechas dentro das estruturas de cada raça de StarCraft}
+	\label{fig:gap}
+\end{figure}
+
+\citeonline{certicky13} propôs uma abordagem para a criação de muralhas usando \emph{answer-set programming}, porém ela requer que sejam dadas de antemão as estruturas a serem usadas na muralha. Essa abordagem busca reduzir as brechas existentes entre as construções.
+
+Além do posicionamento e do espaçamento entre estruturas, pode ser levado em conta o custo de cada estrutura.
+
+\section{Ministério da Indústria}
+As funções do ministério da indústria são:
+\begin{itemize}
+	\item Executar a abertura escolhida.
+	\item Criar ordens de construção no decorrer do jogo.
+	\item Guardar todas as estruturas de criação de unidades.
+\end{itemize}
+
+O ministério da indústria é responsável pela manutenção da ordem de construção da IA. Ele inicialmente irá receber a ordem de construção inicial, isto é, a abertura, de um oráculo. Para a execução dessa ordem de construção, o ministério dá ordens aos ministérios de infraestrutura e de tecnologia de forma que eles criem as estruturas e pesquisem as tecnologias necessárias, bem como dá ordens às estruturas de produção, as quais fazem parte de suas responsabilidades.
+
+Após o término da abertura, o ministério da indústria começa a pedir dos outros ministérios quais as necessidades que eles possuem no momento, e pondera sobre essas necessidades e as capacidades de produção da IA para determinar quais passos devem ser tomados a seguir. Ele deve ser capaz de identificar os requisitos de construção de unidades e tecnologias, para que não fique estagnado tanto tecnologicamente como militarmente.
+
+Para a ordem de construção é usada uma fila de prioridades, de forma que o ministério tenha como avaliar e implantar mudanças nesta fila de acordo com as prioridades do estado atual do jogo.
+
+\section{Ministério da Defesa}
+As funções do ministério da defesa são:
+\begin{itemize}
+	\item Controlar as unidades militares.
+	\item Manter um controle das unidades que pode-se criar e definir uma composição ideal a partir disso.
+\end{itemize}
+
+\subsection{Controle de unidades}
+O controle de unidades foi alvo de inúmeros trabalhos ao longo dos anos. Por exemplo, \citeonline{uriarte12} mostraram como criar o comportamento de ``atacar e correr'' usando mapas de influência. \citeonline{cadena11} e \citeonline{synn12} usaram \emph{case-based reasoning} para o planejamento tático. Este agente, então, deve utilizar alguma técnica, já pesquisada ou não, para controlar de forma eficiente as unidades militares do jogador.
+
+\subsection{Composição de unidades}
+A composição das unidades deve ser planejada de acordo com o que é possível produzir, levando em consideração a composição do exército inimigo. Para atingir este feito, dois agentes vão cuidar de cada aspecto separadamente. A composição final vai ficar decidida pelo Ministério da Indústria, que fará uma negociação sobre quais unidades serão criadas.
+
+O Ministério da Defesa é responsável por determinar quais unidades devem ser feitas, sob a ótica do que é possível fazer. A Agência de Inteligência é encarregada por verificar a composição que melhor enfrenta o exército inimigo. Para esses agentes verificarem isso, eles devem observar os papéis das unidades e selecionar aquelas que melhor se encaixam na composição.
+
+Por exemplo, um jogador Zerg ao enfrentar um oponente Terran pode recorrer a uma composição de fim de jogo com zerglings e \emph{ultralisks}\footnote{Unidade zerg do mais alto nível tecnológico. Unidade militar corpo-a-corpo, com alta durabilidade e dano.}. O jogador Terran pode, então, escolher uma das seguintes alternativas para enfrentar essa composição: (a) criar \emph{siege tanks}\footnote{Unidade militar mecânica terran que possui dois modos de ataque, um com baixo dano contra uma única unidade e outro com alto dano em área.} para causar uma grande quantidade de dano em área tanto nos zerglings, provavelmente matando vários de uma só vez, como nos ultralisks; (b) criar \emph{vultures}\footnote{Unidade militar mecânica terran de assédio. Possui, após pesquisa tecnológica, habilidade de depositar \emph{spider mines} que causam grande dano em área.} que podem depositar \emph{spider mines} no chão, e estas causam também dano em área; (c) criar \emph{science vessels}\footnote{Unidade terran conjuradora e voadora. Amplamente utilizada nos confrontos Terran vs Protoss e Terran vs Zerg.} que podem usar a habilidade \emph{irradiate} e matar ultralisks, deixando o trabalho das unidades militares mais fácil.
+
+Neste exemplo, suponhamos que o jogador terran não possui a capacidade de produzir \emph{siege tanks} ou \emph{science vessels}, e pode produzir tanto \emph{vultures} como \emph{marines}\footnote{Primeira unidade militar biológica terran disponível.}. Então, durante a fase de negociação, o Ministério da Defesa iria propor a criação de \emph{vultures} e \emph{marines}, pois os primeiros possuem um bom ataque terrestre contra unidades leves e a habilidade de causar dano em área, enquanto os últimos possuem maior dano por unidade de tempo, além de atacarem unidades aéreas. A Agência de Inteligência proporia tanto \emph{vultures} como as unidades que o jogador é incapaz de construir, \emph{siege tanks} e \emph{science vessels}, pois elas são as que melhor combatem a composição inimiga. Isso levaria a inteligência artificial a produzir mais \emph{vultures} do que \emph{marines}, tendendo a ter uma composição boa contra as unidades inimigas e consistente entre si.
+
+\section{Ministério de Tecnologia}
+A função do ministério é tirar o jogador de uma estagnação tecnológica, verificando com a Agência de Inteligência quais tecnologias o oponente já pesquisou e guardando informações sobre as unidades que estão sendo usadas pelo jogador. 
+
+Tecnologias são classificadas de acordo com o papel que eles desbloqueiam nas unidades, seguindo o mesmo exemplo de unidades. A diferença sendo que tecnologias podem aprimorar a efetividade de algumas unidades, e isso requer um novo papel, além daqueles descritos para as unidades.
+
+Além disso, o ministério terá que identificar pré-requisitos tecnológicos para poder guiar corretamente o andamento da \emph{game AI}. Assim, o Ministério da Indústria poderá perceber que um determinado pré-requisito está sendo mais necessário do que o esperado e adiantar, se possível, sua posição na fila de produção.
+
+\section{Agência de Inteligência Militar}
+A agência de inteligência tem como funções:
+\begin{itemize}
+	\item Analisar o mapa;
+	\item Verificar as movimentações do exército inimigo e predizer ataques iminentes;
+	\item Verificar e guardar informações sobre o desenvolvimento estratégico do inimigo.
+\end{itemize}
+
+\subsection{Análise do mapa}
+
+\begin{figure}[htb]
+	\centering
+	\subfloat[Grafo das bases]{\includegraphics[scale=4.3]{Imagens/grafo.jpg}}
+	\qquad
+	\subfloat[Mapa de StarCraft] {\includegraphics[scale=0.25]{Imagens/188_Destination.jpg}}
+	\caption{Comparação de mapa com o seu grafo correspondente}
+	\label{fig:graph}
+\end{figure}
+
+A análise do mapa é feita de maneira estática criando um multigrafo direcionado de todas as bases principais, onde elas são ligadas por arestas que representam as distâncias terrestres e aéreas (Figura \ref{fig:graph}). Também ligadas às bases estão suas naturais, a partir delas pode-se chegar a todas as outras bases. A ligação das outras bases às naturais é feita somente pela distância terrestre.
+
+\subsection{Verificação da movimentação e predição de ataques}
+A verificação da movimentação se dará através do uso de unidades terrestres de baixo custo e/ou de unidades aéreas que servirão de unidades de reconhecimento. Elas ficarão navegando pelo mapa à procura de pontos estratégicos para observar o exército inimigo, até que haja perigo iminente, quando o exército do jogador precisará se reagrupar.
+
+Após a primeira vista da movimentação, o agente fará uma aproximação da direção do movimento das unidades avistadas com alguns pontos de controle. Estes pontos de controle serão:
+\begin{itemize}
+	\item Expansões, ocupadas ou não;
+	\item Gargalos.
+\end{itemize}
+
+\citeonline{weber11} propuseram um modelo para estimar o movimento das unidades inimigas em StarCraft. Como esse modelo foi feito para receber treinamento vindo de \emph{replays} de partidas, uma proposta mais simples é utilizar algum conhecimento especialista para determinar os parâmetros e eliminar o treinamento.
+
+\subsection{Verificação do desenvolvimento estratégico do inimigo}
+Além de unidades monitorando o exército inimigo, um grupo menor de unidades deve verificar as expansões não ocupadas do mapa periodicamente, a fim de determinar quando uma expansão foi tomada pelo inimigo. Espera-se que esse tipo de informação sirva para ativar algum tipo de resposta da inteligência artificial, seja expandir ou atacar o inimigo.
+
+Para verificar outros aspectos do desenvolvimento estratégico, o ministério deve verificar quais tecnologias foram pesquisadas e quais unidades foram criadas pelo inimigo, analisando os combates. Espera-se que essa informação seja usada para modelar um plano para combater o inimigo mais eficientemente.
+
+\section{Comunicação dos agentes}
+Os agentes irão trocar informações em momentos diferentes do processo de atuação da \emph{game AI}. Essas comunicações podem ser categorizadas em comunicações de dependência e comunicações de negociação.
+
+As comunicações de dependência ocorrerão quando, para realizar alguma ação, um ministério precise de informações provenientes de outro. Esse tipo de comunicação é a mais comum, já que pode ocorrer a qualquer momento da execução da inteligência artificial.
+
+Já as comunicações de negociação se darão quando a \emph{game AI} estiver no modo de reação e o ministério da indústria precisar atualizar a ordem de construção. Uma vez que cada agente terá suas preferências quanto ao que se deve ser feito, a indústria recolherá o que cada um prefere e fará um leilão a fim de decidir qual a melhor opção para todos. Como entrada para esse leilão, os agentes passarão os resultados de funções de pertinência referentes às unidades que eles estão responsáveis por observar.
+
+\subsection{Comunicações de Dependência}
+Comunicações de dependência ocorrem quando agentes precisam de informações ou ações de outros agentes para atingir seu objetivo. Na Figura~\ref{fig:modelo}, os fluxos de comunicação estão demonstrados, do requisitador ao seu alvo. Abaixo, cada uma dessas requisições é explicada e categorizada de acordo com a ação. Além destas, a negociação feita pelo Ministério da Indústria também é considerada uma comunicação de dependência, mas devido às suas características, ela será explicada mais à frente.
+
+\begin{itemize}
+	\item Seleção de aberturas
+		\begin{itemize}
+			\item Um oráculo insere a ordem de construção da abertura escolhida no Ministério da Indústria. Este oráculo é representado no gráfico como Cerebrate, que é o conjunto de todos os ministérios.
+		\end{itemize}
+\end{itemize}
+
+\begin{itemize}
+	\item Execução da ordem de construção
+		\begin{enumerate}
+			\item Antes de executar a ordem de construção, o Ministério da Indústria envia o orçamento da produção ao Ministério de Economia.
+			\item Uma referência para o orçamento é repassada ao Ministério da Indústria, que a envia para o ministério responsável pela criação do item do topo da fila.
+			\item Quando o item começa a ser feito, o ministério responsável por ele manda o aviso que o orçamento foi cumprido para o Ministério de Economia.
+		\end{enumerate}
+\end{itemize}
+
+\begin{itemize}
+	\item Construção de estruturas
+		\begin{enumerate}
+			\item O Ministério da Indústria ordena ao Ministério de Infraestrutura a construção da estrutura que está no topo da fila de produção.
+			\item O Ministério de Infraestrutura procura o melhor posicionamento para tal estrutura, e pede ao Ministério de Minas o trabalhador livre mais próximo da posição final escolhida.
+			\item Após o término da construção, o Ministério de Infraestrutura envia a estrutura para o ministério correspondente e o trabalhador usado de volta ao Ministério de Minas. Caso seja uma estrutura de produção, ela irá para o Ministério da Indústria. Caso seja uma estrutura de pesquisa, o Ministério de Tecnologia se torna responsável por ela.
+		\end{enumerate}
+\end{itemize}
+
+\begin{itemize}
+	\item Criação de expansões
+		\begin{itemize}
+			\item O Ministério de Infraestrutura, quando for construir uma expansão, pede à Agência de Inteligência qual a melhor posição para a próxima expansão.
+		\end{itemize}
+\end{itemize}
+
+\begin{itemize}
+	\item Defesa de bases
+		\begin{itemize}
+			\item O Ministério da Defesa pede ao Ministério de Minas trabalhadores, quando não há unidades suficientes para defender uma base.
+		\end{itemize}
+	\item Atualização de informações importantes
+		\begin{itemize}
+			\item O Ministério da Defesa constantemente verifica com a Agência de Inteligência quais são os pontos que precisam ser defendidos e quais precisam ser atacados.
+			\item O Ministério da Tecnologia verifica com a Agência de Inteligência quais tecnologias foram pesquisadas pelo oponente, para dar uma boa resposta à situação.
+		\end{itemize}
+	\item Destruição de estruturas
+		\begin{enumerate}
+			\item Quando uma estrutura é destruída, o ministério responsável informa ao Ministério da Indústria.
+			\item Então, ele busca saber se existe a necessidade de reconstruir a estrutura através de uma negociação extraordinária.
+		\end{enumerate}
+\end{itemize}
+
+\subsection{Comunicações de Negociação}
+\begin{table}[h]
+	% Título de tabelas sempre aparecem antes da tabela
+	\center
+	{
+		\begin{tabular}{l|l}
+			\hline
+			\textbf{Agente}					&	\textbf{Unidades}\\
+			\hline
+			Ministério de Minas 			& 	Trabalhadores, bases\\
+			Ministério da Indústria			&	Suprimentos\\
+			Ministério da Economia 			&	Bases, estruturas de produção de unidades\\
+			Ministério da Infraestrutura	&	Trabalhadores, Estruturas de defesa\\
+			Ministério da Tecnologia		&	Estruturas de pesquisa, tecnologias\\
+			Ministério de Defesa			&	Trabalhadores, unidades de combate,\\& estruturas de produção de unidades\\
+			Agência de Inteligência			&	Estruturas de defesa, unidades de combate, bases\\
+			\hline
+		\end{tabular}
+	}
+	\caption{Relação entre agentes e unidades}
+	\label{tab:comneg}
+\end{table}
+
+Embora existam vários agentes que monitoram a necessidade de um mesmo tipo de unidade, eles observam sob diferentes perspectivas (tabela~\ref{tab:comneg}). Abaixo estão descritas as motivações dos agentes com relação a cada tipo de unidade.
+
+\begin{itemize}
+	\item Trabalhadores:
+		\begin{itemize}
+		\item Minas: Procura obter a saturação das bases.
+		\item Defesa: Procura repor trabalhadores que morreram em combate.
+		\end{itemize}
+	\item Bases:
+		\begin{itemize}
+		\item Minas: Procura expandir quando há mais trabalhadores que o necessário para operação das bases.
+		\item Economia: Procura manter as estruturas de produção sempre funcionando.
+		\item Inteligência: Procura expandir depois de vencer uma batalha recente, pois o inimigo terá que gastar tempo e recursos repondo tropas.
+		\end{itemize}
+	\item Suprimentos:
+		\begin{itemize}
+		\item Indústria: Procura não ficar com bloqueio de suprimentos.
+		\end{itemize}
+	\item Estruturas de produção:
+		\begin{itemize}
+		\item Economia: Procura aumentar o número de estruturas, caso a renda dê suporte a isso, não importando que tipo de estrutura seja.
+		\item Defesa: Procura criar estruturas que ajudem a construir um exército com uma determinada composição.
+		\end{itemize}
+	\item Estruturas de defesa:
+		\begin{itemize}
+		\item Infraestrutura: Procura deixar todas as bases com alta capacidade de defesa.
+		\item Inteligência: Procura aumentar o número de estruturas de defesa ao perceber um ataque se aproximando.
+		\end{itemize}
+	\item Estruturas de pesquisa e tecnologias:
+		\begin{itemize}
+		\item Tecnologia: Procura construir estruturas que possam melhorar as unidades que estão sendo produzidas.
+		\end{itemize}
+	\item Unidades de combate:
+		\begin{itemize}
+		\item Defesa: Procura fazer as melhores unidades, considerando o que é factível e a composição desejada.
+		\item Inteligência: Procura fazer as melhores unidades, considerando o que é factível e a composição inimiga.
+		\end{itemize}
+\end{itemize}

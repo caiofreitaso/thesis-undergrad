@@ -1,0 +1,378 @@
+% Introdução
+\chapter{Introdução}
+
+Este trabalho descreve um modelo de \emph{game AI}\footnote{Inteligência artificial voltada para jogos.} para o jogo StarCraft: Brood War. Este modelo procura produzir unidades e expandir sua economia de maneira reativa às atitudes do seu oponente. Como StarCraft se trata de um jogo de estratégia em tempo real, uma introdução ao gênero e ao jogo se faz necessária.
+
+\section{Jogos de Estratégia em Tempo Real}
+O gênero de jogos de estratégia em tempo real, ou \abrv[RTS -- Real-Time Strategy Game]{RTS} (\emph{real-time strategy}), como o conhecemos hoje, começou em 1992 com o lançamento do jogo Dune II\footnote{Publicado pela Virgin Interactive, desenvolvido pela Westwood Studios.}. O jogo feito para DOS, Amiga e Mega Drive foi o primeiro que permitia ao jogador criar unidades e estruturas e enfrentar um inimigo nas mesmas condições. Nele é possível identificar os elementos que estarão presentes em todos os jogos de estratégia a partir de então:
+
+\begin{itemize}
+	\item Coleta de recursos,
+	\item Construção de estruturas,
+	\item Produção de unidades,
+	\item Diferentes facções,
+	\item Mini-mapa no canto da tela (Figura~\ref{fig:duneII}),
+	\item Controle feito pelo cursor do \emph{mouse}.
+\end{itemize}
+
+\begin{figure}
+	\centering
+	\includegraphics[scale=0.35]{Imagens/DuneII.jpg}
+	\caption{Captura de tela de Dune II.}
+	\label{fig:duneII}
+\end{figure}
+
+O jogador começa o jogo com uma pequena quantidade de recursos, uma base e alguns soldados. Para poder enfrentar seu inimigo, ele deverá adquirir mais recursos através de unidades coletoras. Com estes recursos, ele será capaz de produzir unidades e estruturas que auxiliem em seus confrontos. Após construir as estruturas obrigatórias que permitem a coleta de recursos, o jogador se depara com a quantidade de opções que ele pode executar:
+
+\begin{itemize}
+	\item Buscar no terreno outras fontes de recurso e/ou a localização do oponente,
+	\item Armazenar os recursos para construção de estruturas ou unidades mais caras,
+	\item Produzir mais coletores,
+	\item Criar unidades militares.
+\end{itemize}
+
+Além disso, existe a possibilidade de controlar as unidades enquanto elas estão combatendo, para aumentar a eficiência delas no combate. Por se tratar de um jogo em tempo real, essas decisões acabam por se tornar ainda mais complexas, pois o jogador deve constantemente: (a) refletir sobre quais aspectos ele deve focar, e (b) ser capaz de reagir ao que acontece na partida.
+
+Ao construir mais estruturas e desbloquear novas unidades, o jogo avança de forma progressiva, expondo o jogador a desafios cada vez maiores conforme o tempo passa. Isto se deve à existência de um número maior de estruturas de construção de unidades, mais unidades para controlar, mais unidades inimigas para combater e uma área maior para defender. Esse sentimento de progressão dentro de uma partida passou a ser compartilhado por todos os RTS.
+
+\subsection{Fases do Jogo}
+As etapas conceituais de uma partida de qualquer RTS são nomeadas a partir das etapas das partidas de xadrez:
+\begin{enumerate}
+	\item Abertura
+	\item Meio-jogo
+	\item Final
+\end{enumerate}
+
+Assim como no xadrez, a abertura é uma série de movimentos (no caso dos RTS, uma ordem de construção ou \emph{build order}) com a qual chega-se a uma posição desejada dentro do jogo. Há vários tipos de aberturas, comumente classificados como:
+\begin{itemize}
+	\item \emph{Cheese}: Abertura não-convencional desenvolvida para pegar o oponente de surpresa. Geralmente, \emph{cheese} é difícil de vencer se não for observado com antecedência, mas fácil de defender caso contrário.
+	\item \emph{Rush}: Abertura que corta alguns custos a fim de produzir algum tipo de agressão no início do jogo. Normalmente a economia do jogador fica atrasada com relação ao esperado de outra abertura considerada mais tradicional.
+	\item \emph{Greedy}: Aberturas gananciosas são similares aos \emph{rushes}, mas com um foco econômico. Essas aberturas podem ser punidas com um ataque na fase inicial do jogo, pois o jogador terá cortado custos para desenvolver a economia, normalmente com a construção precoce de uma base. Caso não seja punida, essa abertura dará ao jogador uma economia maior, o que possibilitará um meio-jogo mais forte.
+	\item \emph{Standard}: Este tipo de abertura foca inicialmente no desenvolvimento econômico, sem abrir mão da defesa. Essas aberturas tendem a ser mais passivas, para defender-se de possíveis \emph{cheeses} e \emph{rushes}.
+\end{itemize}
+
+A partir da abertura escolhida, e se o jogador não venceu ou perdeu o jogo devido a um \emph{cheese} ou \emph{rush}, pode ser possível fazer uma transição para o meio-jogo. Para isso, avança-se na árvore tecnológica de forma que o jogador consiga produzir uma composição sólida de unidades, e então parte-se para o ataque. Embora normalmente haja um foco único, isso não implica a utilização de mais de um tipo de ataque durante o decorrer do jogo. Os principais tipos de ataques são:
+\begin{itemize}
+	\item Ataques à economia, através do transporte de unidades às linhas de minério ou através de unidades de assédio\footnote{Unidades rápidas e que podem causar grande dano econômico ao destruir muitos trabalhadores em pouco tempo.};
+	\item Ataques em múltiplas localidades, para tentar reduzir o potencial de defesa do inimigo ao mesmo tempo em que foca-se na destruição de bases ou de estruturas de produção;
+	\item Ataques frontais, forçando o oponente a se preocupar mais em defender-se do que em aumentar seu lucro ou sua capacidade de produção.
+\end{itemize}
+
+O final do jogo é marcado pela escassez de recursos no mapa e pelo alto nível tecnológico dos jogadores, de forma que, geralmente, as batalhas envolvem uma disputa por recursos. Muito raramente as partidas chegam a esse estágio, terminando em uma fase tardia do meio-jogo, quando pelo menos um dos jogadores chega ao último nível tecnológico.
+
+A qualquer momento do jogo, como em um jogo de apostas, o jogador pode se colocar numa posição de ``tudo ou nada'', por ter ficado em uma posição de extrema desvantagem com relação ao outro jogador, seja na coleta de recursos, no desenvolvimento tecnológico ou na capacidade de produção. Assim, deve-se fazer algum ataque à economia ou produção do seu inimigo para conseguir ao menos deixá-lo em uma situação similar à sua, caso contrário não conseguirá vencer a partida.
+
+\section{RTS em Inteligência Artificial}
+A partir do trabalho de \citeonline{buro03}, cujo foco é estimular pesquisas de inteligência artificial em cima de RTS, muitos trabalhos foram feitos usando StarCraft como objeto de estudo. Como mostrado por \citeonline{ontanon13}, jogos deste gênero são ambientes complexos, onde as técnicas de IA ainda têm dificuldades, pois possui um espaço de estados muito grande.
+
+A complexidade de um ambiente pode ser classificada de acordo com várias propriedades \cite{russelnorvig}, e RTS se enquadra no pior caso na maior parte delas:
+\begin{itemize}
+	\item \textbf{Parcialmente observável}: a névoa de guerra impede o jogador de ver o que o oponente está fazendo, e saber dados como sua taxa de coleta de recursos e a composição de seu exército, por exemplo, de antemão.
+	\item \textbf{Multiagente}: cada unidade do jogador possui um propósito e deve cooperar a fim de atingir objetivos globais. Da mesma forma, elas devem levar em conta as unidades inimigas que estão no mapa e tentar combatê-las de alguma forma.
+	\item \textbf{Estocástico}: embora o resultado de qualquer ação de um agente seja determinístico, o ambiente é parcialmente observável, a quantidade de ações que o oponente pode tomar é enorme e essas ações podem ser feitas simultaneamente. Ele é complexo o bastante para ser considerado estocástico, ao invés de determinístico.
+	\item \textbf{Sequencial}: todas as ações tomadas em um determinado momento da partida tem consequências, grandes ou pequenas, que se repercutem ao longo do jogo.
+	\item \textbf{Dinâmico}: o ambiente do jogo está mudando constantemente com as ações do jogador. Enquanto o jogador pensa no que fazer, jazidas de minérios e gêiseres de gás vespeno estão se exaurindo, unidades são criadas e eliminadas, e unidades inimigas estão se movimentando.
+\end{itemize}
+
+Jogos clássicos, como Xadrez e Go, possuem uma grande complexidade com regras inteligentes e objetivos simples. Eles foram alvo de diversos trabalhos \cite{bouzy2001computer} devido à essa complexidade e simplicidade de regras. Conforme \citeauthor{ontanon13} explicam, jogos de estratégia em tempo real possuem uma complexidade muito superior às complexidades destes dois jogos, que até hoje são explorados por diversas técnicas de inteligência artificial.
+
+\begin{citacao}
+Outra maneira de medir a complexidade do jogo é olhando o fator de ramificação, $b$, e a profundidade do jogo, $d$, [...] , com uma complexidade total de $b^d$. Em Xadrez, $b \approx 35$ e $d \approx 80$. Em jogos mais complexos, como Go, $b \approx 30$ a $300$, e $d \approx 150$ a $200$. A fim de determinar o fator de ramificação em StarCraft quando uma IA o joga, nós devemos ter em mente que a IA pode dar ações simultaneamente a quantas unidades no jogo for desejado. Então, considerando que, em um jogo típico, um jogador controla entre $50$ e $200$ unidades, o fator de ramificação ficaria entre $u^{50}$ e $u^{200}$, onde $u$ é o número médio de ações que cada unidade pode executar. Estimar o valor de $u$ não é fácil, pois o número de ações que uma unidade pode tomar é altamente dependente do contexto. [...] Agora, se tivermos em mente que ações possuem tempos de \emph{cool-down}\footnote{Tempo de \emph{cool-down} é o tempo em que uma habilidade ou ataque fica indisponível entre um uso e outro. Esse conceito não se restringe aos RTS e pode ser observado em jogos como \emph{World of WarCraft}.}, e assim nem todas as unidades podem executar todas as ações a todo quadro, podemos tomar uma estimativa conservadora de cerca de $10$ possíveis ações por unidade por quadro do jogo. Isto resulta em uma estimativa conservadora para o fator de ramificação entre $b \in [10^{50}, 10^{200}]$, somente considerando unidades (ignorando as ações que construções podem executar). Agora, para computar $d$, nós simplesmente consideramos o fato de que os jogos típicos duram em torno de 25 minutos, o que resulta em $d \approx 36000$ (25 minutos $\times$ 60 segundos $\times$ 24 quadros por segundo) \cite[p. 294]{ontanon13}.
+\end{citacao}
+
+Esta comparação de complexidade (mais evidente na Tabela~\ref{tab:complex}), mostra uma diferença grande entre a quantidade de estados dos jogos. Devido a esse fator, pesquisadores como \citeauthor{buro03} e \citeauthor{ontanon13} acreditam que o investimento de pesquisas com foco em jogos de estratégia em tempo real possibilitam um amplo melhoramento ou criação de técnicas de inteligência artificial.
+
+\begin{table}[h]
+	% Título de tabelas sempre aparecem antes da tabela
+	\center
+	{
+		\begin{tabular}{l|l|l}
+			\hline
+			\textbf{Jogo} & \textbf{Fator de ramificação} & \textbf{Profundidade do jogo}\\
+			\hline
+			Xadrez & $\approx 35$ & $\approx 80$\\
+			Go & $\approx 30$ a $300$ & $\approx 150$ a $200$\\
+			StarCraft (25 minutos) & $[10^{50}, 10^{200}]$ & $\approx 36000$\\
+			\hline
+		\end{tabular}
+	}
+	\caption{Comparação das complexidades de jogos abordados através de IA e um RTS.}
+	\label{tab:complex}
+\end{table}
+
+\subsection{Desafios em RTS}
+No intuito de estimular pesquisas de inteligência artificial em RTS, \citeonline{buro03} observou seis desafios encarados ao tentar criar uma \emph{game AI} para um jogo desse gênero:
+\begin{enumerate}
+	\item \textbf{Gerenciamento de recursos}: desafio que envolve a coleta e o gasto dos recursos, seja em unidades, tecnologias ou estruturas, em um ambiente mutável e em tempo real.
+	\item \textbf{Tomada de decisão sob incerteza}: devido à névoa de guerra (\emph{fog of war}), não é possível saber a localização e intenções do(s) oponente(s), e o jogador deve tomar decisões sem esse conhecimento.
+	\item \textbf{Raciocínio temporal e espacial}: análises de terreno estática e dinâmica bem como entender a relação temporal das ações é imprescindível no decorrer do jogo.
+	\item \textbf{Colaboração}: em partidas cooperativas, duas \emph{game AIs} aliadas devem saber interagir de modo a vencer a partida.
+	\item \textbf{Modelagem e aprendizado de oponentes}: ao enfrentar o mesmo oponente várias vezes, \emph{game AIs} devem conseguir se adaptar ao seu estilo de jogo.
+	\item \textbf{Planejamento adversário em tempo real}: ao invés de planejar micro-ações, a \emph{game AI} deve utilizar abstrações para manter o espaço de busca em tamanho gerenciável.
+\end{enumerate}
+
+Após 10 anos de publicação do trabalho de \citeauthoronline{buro03} e vários artigos sobre StarCraft e seu gênero, \citeonline{ontanon13} expuseram os seis atuais desafios na criação de \emph{game AI} para RTS:
+\begin{enumerate}
+	\item \textbf{Planejamento}: o planejamento em RTS depende de múltiplos níveis de abstração.	No nível mais elevado, o jogador precisa ter capacidades de planejamento a longo prazo, para desenvolver uma economia forte no jogo; no nível mais baixo, as unidades devem ser controladas levando em consideração o terreno e o oponente.
+	\item \textbf{Aprendizado}: os autores distinguiram três tipos de problemas de aprendizado em jogos de estratégia em tempo real:
+	\begin{itemize}
+		\item \emph{Aprendizado a priori}: o aprendizado que se faz antes da partida começar, analizando \emph{replays} ou mapas para aprender as estratégias apropriadas.
+		\item \emph{Aprendizado na partida}: implantação de técnicas de aprendizado \emph{online}, como aprendizado por reforço e modelagem de oponentes, para adaptar-se em tempo real.
+		\item \emph{Aprendizado entre partidas}: estudar o que aconteceu nas últimas partidas e usar esse conhecimento para aumentar as chances de vitória nas próximas partidas.
+	\end{itemize}
+	\item \textbf{Incerteza}: em RTS existem dois principais tipos de incerteza. O primeiro é pelo jogo ser parcialmente observável, forçando o jogador a patrulhar para saber o que o oponente está fazendo. O segundo é pelo jogo ser competitivo e o jogador não conseguir predizer as ações do(s) oponente(s).
+	\item \textbf{Raciocínio temporal e espacial}: raciocínio espacial engloba cada aspecto da exploração do terreno. Está relacionado a posicionamento de estruturas, expansão de bases e controle de unidades. O posicionamento de estruturas pode ajudar o jogador a criar as construções de forma a proteger sua base ou evitar configurações que impeçam unidades de mover. Antes de criar novas bases, o jogador precisa avaliar as possibilidades e escolher o melhor posicionamento, levando em consideração as suas bases e as do oponente. O controle das unidades no campo de batalha deve evitar ficar em gargalos e posicionando as unidades de maneira favorável, como um terreno elevado.
+	\item \textbf{Exploração do conhecimento de domínio}: como a quantidade de conhecimento de domínio é significativamente grande, não se sabe como esse conhecimento pode ser explorado por \emph{game AIs}. Os trabalhos se focaram em: (a) implementar as estratégias existentes diretamente nas \emph{game AIs}, e (b) analisar grandes conjuntos de \emph{replays} para aprender estratégias, tendências ou planos.
+	\item \textbf{Decomposição de tarefas}: por todas as razões acima, a maior parte dos trabalhos decompõe o problema em uma coleção de pequenos problemas, a serem resolvidos independentemente.  A divisão mais comum é:
+	\begin{itemize}
+		\item \emph{Estratégia}: está relacionada com a área mais elevada do processo de tomada de decisão. Deve identificar estratégias eficientes contra um dado oponente.
+		\item \emph{Tática}: implementa a estratégia escolhida de forma eficiente. Cuida de movimentação do exército, posicionamento de construções, timings de ataques e produções.
+		\item \emph{Controle reativo}: implementação das táticas. Determina os alvos das unidades, sua movimentação em batalha e fuga.
+		\item \emph{Análise de terreno}: consiste em identificar pontos importantes no mapa e saber as regiões navegáveis dentro dele. Pontos importantes incluem posições de minérios e gás, gargalos, terrenos elevados ou rebaixados.
+		\item \emph{Coleta de informação}: devido à névoa de guerra, jogadores devem regularmente mandar patrulhas para localizar e espionar bases inimigas.
+	\end{itemize}
+	Porém como integrar todas essas áreas em uma única arquitetura ainda é um problema aberto.
+\end{enumerate}
+
+\subsection{Trabalhos Existentes}
+Durante os últimos anos, vários trabalhos científicos focaram nas diferentes áreas desse jogo.
+\begin{itemize}
+	\item Na área que cuida da produção de unidades e da pesquisa de tecnologias, trabalhos focaram em abordagens baseadas em aprendizado de máquina \cite{weber09} \cite{deres11} \cite{synn11} \cite{young12} \cite{hsieh08}.
+	\item Na área de análise de terreno \citeonline{perkins10} encontrou uma maneira de identificar as regiões navegáveis e separou-as através de gargalos, também identificados pela decomposição de Voronoi.
+	\item Em posicionamento de estruturas, \citeonline{certicky13} apresentou uma abordagem para isso usando \emph{answer-set programming}.
+	\item Outra área que foi foco de vários trabalhos é a área de controle de unidades militares. Dessa área, pode-se dividir os trabalhos focados na área de decisão e na área de movimentação. Trabalhos na área de decisão usaram \emph{case-based reasoning} \cite{cadena11} \cite{synn12} para o planejamento tático.
+	\item Trabalhos sobre movimentação utilizaram \emph{potential fields} \cite{sajjad11} \cite{hagelback12} e aprendizado por reforço \cite{wender12}.
+\end{itemize}
+
+Mais referências de artigos que utilizam esse jogo como objeto de estudo podem ser vistos no trabalho de \citeonline{ontanon13}.
+
+\subsection{Competições de Bots}
+Com a criação de uma \abrv[API -- Application Programming Interface]{API} que permitiu fazer interface entre o jogo StarCraft e sistemas desenvolvidos para controlar automaticamente os personagens deste jogo, pesquisadores em \emph{game AI} criaram um \emph{framework} de competições entre diferentes sistemas que substituem o jogador humano. As competições começaram em 2010 nas conferências científicas \abrv[AIIDE -- AAAI Conference on Artificial Intelligence and Interactive Digital Entertainment]{AIIDE} e \abrv[CIG -- IEEE Conference on Computational Intelligence and Games]{CIG}, organizadas respectivamente pela AAAI (\emph{Association for Advancement of Artificial Intelligence}) e pela IEEE (\emph{Institute of Electrical and Electronics Engineers}). Outras duas competições surgiram nos anos seguintes. A \abrv[SSCAI -- Student StarCraft AI Tournament]{SSCAI}\footnote{\url{http://sscaitournament.com}} surgiu em 2011 com a ideia de fazer uma competição entre \emph{game AIs} feitas por estudantes, e entre as feitas pelos estudantes contra o estado da arte. Em 2012, foi criada a liga de robôs de StarCraft, \emph{StarCraft BroodWar Bots Ladder}\footnote{\url{http://bots-stats.krasi0.com/}} que visa ser um ambiente de competição ininterrupta e contém 17 \emph{bots} classificados de acordo com o sistema de \emph{ranking} Elo. Detalhes sobre as competições da AIIDE, CIG e sobre a liga podem ser vistos em  \cite{ontanon13}.
+
+%\subsubsection{AIIDE}
+%Desde 2010, a AIIDE organiza a competição \emph{AIIDE StarCraft AI Competition}, a mais conhecida e mais antiga competição de IA para StarCraft do mundo \cite{ontanon13}. A cada ano, os competidores colocam seus robôs para batalhar em versões normais de StarCraft: Brood War, com prêmios fornecidos pela Blizzard Entertainment.
+%
+%Inicialmente, a competição da AIIDE era dividida em quatro torneios distintos. O Torneio 1 era um torneio de microgerenciamento de unidades em um terreno plano. O Torneio 2, era também de microgerenciamento mas em um terreno irregular. O Torneio 3 envolvia o macrogerenciamento mas com tecnologias limitadas, em um mapa específico. O Torneio 4 era um torneio com partidas completas em mapas aleatórios. Essa última modalidade continua até hoje. Como em competições de jogadores humanos, nenhuma IA pode trapacear ou usar determinados \emph{bugs} para obter vantagem.
+%
+%No primeiro ano de competições, o vencedor da competição foi o robô Overmind, da Universidade da Califórnia, que usou grandes números de mutalisks controladas por um sistema de microgerenciamento baseado em \emph{potential fields}. O robô krasi0 ficou em segundo lugar, jogando mais tradicionalmente e optando pela estratégia \emph{mech} dos Terran. Nesse torneio, foi utilizado o formato de eliminação dupla, cada partida sendo uma melhor de 5.
+%
+%No segundo ano, com a introdução de um sistema de gerenciamento de torneios automatizado, o torneio optou por utilizar o estilo \emph{round-robin}. Este torneio teve um grande número de \emph{bots} jogando com os Protoss, seis dos 13 robôs que jogaram eram dessa raça. Três desses ficaram nos três primeiros lugares, Skynet, UAlbertaBot e AIUR, respectivamente. Após essa competição, houve uma partida homem vs. máquina, entre o vencedor da competição, Skynet, e um ex-jogador profissional. Esse jogador escolheu raças aleatórias em cada partida, da melhor de três. A performance do \emph{bot} mostrou que não havia preparo nem adaptação para enfrentar um jogador humano de alto nível, e Skynet perdeu por 2-0.
+%
+%Em 2012, foi introduzida a possibilidade de salvar informações em disco, entre partidas. Neste ano, Skynet ganhou mais uma vez, com AIUR em segundo lugar e UAlbertaBot em terceiro. Na partida homem vs. máquina, o jogador humano escolhido foi Bakuryu, na época um dos melhores Zerg não-coreanos do mundo. Isso foi mostrado nas partidas contra Skynet, onde ele fez a IA parecer muito boba, usando seus zerglings para tirar a atenção dos zealots\footnote{Primeira unidade militar \emph{protoss}, capaz de atacar somente a corpo-a-corpo.} e de metade dos trabalhadores da Skynet ao deixá-los correndo em círculos ao redor da base do \emph{bot}. Depois de matar vários trabalhadores, ele limpou o exército inimigo com um grupo de mutalisks. Isso mostrou que os sistemas de IA para StarCraft ainda não conseguiram ter um raciocínio de causa e consequência. Pois os zerglings estavam desviando a atenção da IA para dar tempo das mutalisks serem criadas e atacarem.
+%
+%\subsubsection{CIG}
+%Inicialmente, em 2010, a CIG organizou um torneio de IA para StarCraft porém sofreu problemas técnicos. Devido a quantidade de \emph{crashes} com os mapas escolhidos, que não foram testados a priori, se tornou injustificável eleger um vencedor.
+%
+%Em 2011, 
+%
+%
+%\subsubsection{SSCAI}
+%
+%
+%\subsubsection{Liga de Robôs}
+
+\section{Objetivos}
+Apesar do crescente número de \emph{game AIs} que apareceram nas competições acadêmicas e a possibilidade de vê-las funcionando em tempo real, pela SSCAI, ainda percebe-se um negligenciamento do estudo do funcionamento das mentalidades dos jogadores profissionais. Com o intuito de estudar este problema, esse trabalho propõe um modelo que trata de diferentes áreas de interesse a fim de criar uma \emph{game AI} que consiga agir de acordo com os comportamentos vistos em campeonatos profissionais de StarCraft.
+
+Ao analisar a demografia das \emph{game AIs} que entraram nas competições AIIDE 2011, AIIDE 2012 e CIG 2011, foi constatado que havia poucas soluções voltadas ao tratamento da raça \emph{Zerg}. Além disso, as estratégias adotadas por essas \emph{game AIs} eram muito pouco variadas, e até mesmo mal geridas de acordo com o confronto. Juntando com o fato do autor deste trabalho ter uma grande experiência prática jogando com essa raça, a decisão de me aventurar com os \emph{Zerg} foi natural. Devido à complexidade dos confrontos, que requer \emph{mindsets}\footnote{Conjuntos de suposições e atitudes.} diferentes quando se joga contra cada raça, o projeto se focará nas partidas contra a raça Terran. 
+
+Este trabalho tem como objetivo principal comparar as aberturas mais usadas pelos jogadores profissionais no confronto Zerg versus Terran através do ponto de vista econômico e militar, observando a coleta de recursos e o tempo de criação das primeiras unidades militares.
+
+O conjunto de aberturas possíveis da \emph{game AI} foi escolhido a partir de uma entrevista com Mike Lange, um jogador Zerg de alto nível, que já ajudou na avaliação de \emph{game AI} de StarCraft em campeonatos da AIIDE \cite{ontanon13}. Ele expôs as aberturas usadas por todas as estratégias que foram consolidadas em torneios profissionais. Dentre todas essas aberturas, apenas algumas foram selecionadas:
+\begin{itemize}
+	\item \emph{5 pool}: um \emph{cheese} que consiste em criar várias unidades militares no início do jogo;
+	\item \emph{9 pool}: um \emph{rush} menos agressivo que a \emph{5 pool}, mas mais seguro e com o potencial de negar expansões territoriais do inimigo por um bom período de tempo;
+	\item \emph{Overpool}: uma abertura mais econômica que pode fazer o inimigo achar que se trata de uma \emph{9 pool};
+	\item \emph{12 pool}: uma abertura mais defensiva, boa para prevenir contra \emph{rushes} da raça Terran;
+	\item \emph{12 hatch}: a abertura mais tradicional, que possibilita transições sólidas para o meio-jogo.
+\end{itemize}
+
+Pela entrevista com o jogador, algumas hipóteses foram criadas:
+\begin{enumerate}
+	\item As aberturas possuem taxas de coleta diferentes. Elas podem ser ordenadas em forma crescente, de acordo com esta taxa, da seguinda maneira: \emph{5 pool}, \emph{9 pool}, \emph{overpool}, \emph{12 pool} e \emph{12 hatch}.
+	\item As aberturas também possuem tempos de criação de \emph{zerglings} diferentes. A ordem crescente das aberturas pelo tempo de criação destas unidades é descrita por: \emph{5 pool}, \emph{9 pool}, \emph{overpool}, \emph{12 pool} e \emph{12 hatch}.
+\end{enumerate} 
+
+Para atingir este objetivo, a \emph{game AI} deve ser capaz de realizar as atividades: (a) manter uma ordem de construção e executá-la, (b) coletar minérios com os trabalhadores, (c) posicionar e construir estruturas e (d) identificar locais de expansão. Com base nisto, os objetivos secundários desse trabalho são:
+\begin{itemize}
+	\item Criar um sistema que maximize a quantidade de recursos explorados em um determinado período de tempo,
+	\item Criar um sistema de posicionamento e construção de estruturas que dificulte ao acesso dos inimigos à base,
+	\item Criar um sistema que defina uma sequência de expansão territorial adequada à estratégia adotada no jogo.
+\end{itemize}
+
+\section{Organização do trabalho}
+O restante deste trabalho está dividido em:
+\begin{itemize}
+	\item Capítulo 2: apresentação dos problemas específicos do jogo StarCraft.
+	\item Capítulo 3: o modelo conceitual do sistema que irá controlar os personagens do jogo.
+	\item Capítulo 4: a aplicação do modelo no jogo StarCraft, voltada à raça Zerg.
+	\item Capítulo 5: os resultados dos experimentos feitos com a implementação.
+	\item Capítulo 6: apresentação de conclusões e trabalhos futuros.
+\end{itemize}
+
+
+\chapter{StarCraft}
+% \subsection{\emph{Timeline} dos RTS}
+% 
+% Após Dune II, vários outros títulos menos expressivos foram lançados, até que em 1994 a Blizzard Entertainment lançou WarCraft: Orcs \& Humans (Figura~\ref{fig:warcraft}), onde o jogador deve escolher entre as raças \emph{orc} ou humana para jogar. Este jogo teve um foco mais voltado ao gerenciamento das unidades, apresentando conjuradores (\emph{spellcasters}), unidades que não possuem uma forma de ataque direto, tendo que gastar uma quantidade de energia de um reservatório pessoal para usar alguma habilidade especial. Além disso, ele apresenta dois recursos, ao invés de um.
+% 
+% \begin{figure}[H]
+% 	\centering
+% 	\includegraphics[scale=0.4]{Imagens/warcraft.jpg}
+% 	\caption{Captura de tela de WarCraft.}
+% 	\label{fig:warcraft}
+% \end{figure}
+% 
+% Em 1995, a Virgin Interactive lançou Command \& Conquer (Figura~\ref{fig:cnc}), desenvolvido pela Westwood Studios. Nele existem duas facções que não são simétricas, ao contrário de todos os jogos de estratégia em tempo real da época, e que são equilibradas de forma que suas forças se sobrepõem sobre suas fraquezas. Nele o jogador escolhe entre as facções: \emph{Global Defense Initiative} (GDI) e \emph{Brotherhood of Nod} (Nod). As unidades da GDI são mais resistentes e poderosas, porém mais caras que as da Nod. Além disso, o estilo de jogo da GDI é focado em ataques estratégicos de larga escala, enquanto a Nod procura usar táticas não convencionais \cite{cirulis95}.
+% 
+% \begin{figure}[H]
+% 	\centering
+% 	\includegraphics[scale=0.32]{Imagens/cnc.jpg}
+% 	\caption{Captura de tela de Command \& Conquer.}
+% 	\label{fig:cnc}
+% \end{figure}
+% 
+% No ano seguinte, a BlueByte lançou The Settlers II (Figura~\ref{fig:settlersII}), jogo criado pela própria empresa. Esse jogo foge quase que inteiramente do padrão de jogos de estratégia em tempo real, pois não dá ao jogador o controle das unidades nem o controle direto da produção delas. Ao invés disso, o jogador tem controle sobre onde as construções serão construídas e quais caminhos os trabalhadores irão tomar, pois as construções são ligadas por estradas até o castelo principal. Além disso, existem 31 recursos, entre recursos brutos e recursos produzidos, que permitem a criação de unidades e construções. O que o jogador pode fazer para influenciar a criação de unidades é alterar a taxa com que os produtos necessários para a criação de cada unidade sejam produzidos. As batalhas são feitas automaticamente, porém o jogador escolhe quando e onde atacar.
+% 
+% \begin{figure}[H]
+% 	\centering
+% 	\includegraphics[scale=0.4]{Imagens/Settlers2.png}
+% 	\caption{Captura de tela de The Settlers II.}
+% 	\label{fig:settlersII}
+% \end{figure}
+% 
+% Posteriormente, Total Annihilation\footnote{\url{http://web.archive.org/web/20010405091547/http://cavedog.com/totala/index.html}} (Figura~\ref{fig:totala}) foi lançado pela GT Interactive em 1997, desenvolvido pela Cavedog Entertainment. Total Annihilation trouxe duas facções que pilotam veículos de batalha gigantescos e disputam planetas para conquistar os recursos \emph{metal} e \emph{energia}. Foi o primeiro jogo a apresentar unidades e terreno 3D. Bem como os outros jogos, as partidas são jogadas em mapas retangulares e existem posições de extração de recursos. Ao contrário de todos os outros jogos, o consumo de recursos não se dá de uma só vez. O jogador ``paga'' cada unidade e cada estrutura ao longo do tempo, e do mesmo modo a coleta não é feita através de pequenos pedaços, mas ela é contínua em uma taxa constante. Unidades e estruturas possuem diferentes taxas de coleta ou de consumo de recursos, sendo necessário fazer um balanço entre a entrada e a saída deles. Além disso, o jogo fornece ao jogador uma unidade que serve como ``base'' inicial, chamada Comandante. Esse comandante é a chave da vitória pois o objetivo das partidas é destruir o comandante inimigo.
+% 
+% \begin{figure}[H]
+% 	\centering
+% 	\includegraphics[scale=0.4]{Imagens/totala.jpg}
+% 	\caption{Captura de tela de Total Annihilation.}
+% 	\label{fig:totala}
+% \end{figure}
+% 
+% Lançado no mesmo ano, Age of Empires\footnote{\url{http://www.ageofempires.com/}} (Figura~\ref{fig:aoe}), distribuído pela Microsoft Game Studios e desenvolvido pela Ensemble Studios, leva o jogador à Idade da Pedra para jogar com uma das civilizações disponíveis. Três civilizações de cada região do mundo antigo estavam presentes. Elas podem ser classificadas como mediterrâneas, mesopotâmias orientais e ocidentais, e asiáticas. Ao invés de um ou dois recursos, o jogo apresenta quatro recursos ao jogador: comida, madeira, ouro e pedra. Esse jogo trouxe a possibilidade de criação de fazendas, estruturas que custam madeira e permitem a coleta de comida, sendo o primeiro jogo a fazer uma efetiva troca de recursos. Além disso, a evolução tecnológica do jogador é marcada por tecnologias de passagem de era, pesquisadas na \emph{town center}, estrutura que serve de depósito para a coleta de recursos. Nesta estrutura também são criados os \emph{trabalhadores}\footnote{Unidade básica que pode construir e coletar recursos.} e pesquisas relacionadas à essas unidades. Esse tipo de estrutura é chamado de estrutura-base ou simplesmente base. Conforme o jogador avança sua era, novas construções e tecnologias são desbloqueadas. As eras do jogo são: Idade da Pedra, Idade da Ferramenta, Idade do Bronze e Idade do Ferro.
+% 
+% \begin{figure}[H]
+% 	\centering
+% 	\includegraphics[scale=0.32]{Imagens/aoe.png}
+% 	\caption{Captura de tela de Age of Empires.}
+% 	\label{fig:aoe}
+% \end{figure}
+% 
+% Em 1998, a Blizzard Entertainment lançou StarCraft (Figura~\ref{fig:sc}) e em seguida sua expansão, Brood War, que traz novas unidades e tecnologias que procuram dar um suporte maior às unidades existentes\footnote{\url{http://classic.battle.net/scc/popup/airbal.htm}}.
+% 
+% \begin{figure}[H]
+% 	\centering
+% 	\includegraphics[scale=0.4]{Imagens/Base.jpg}
+% 	\caption{Captura de tela de StarCraft.}
+% 	\label{fig:sc}
+% \end{figure}
+% 
+% \section{StarCraft}
+StarCraft é um RTS em que o jogador deve coletar dois tipos de recursos, \emph{minérios} e \emph{gás vespeno}, para poder enfrentar um grupo de inimigos. Esses recursos são normalmente distribuídos pelo mapa de forma tal que se possa criar uma base de extração, também chamada de expansão, próxima a todas as fontes de recursos\footnote{Estruturas neutras que são o alvo da coleta de recursos.}, jazidas de minérios e gêiseres de gás vespeno (Figura~\ref{fig:resources}). O conjunto de jazidas de minérios próximo a uma base é chamado de linha de minério.
+
+\begin{figure}[H]
+	\centering
+	\subfloat[Jazidas de minérios]{\includegraphics[scale=0.66]{Imagens/minerals.jpg}}
+	\qquad
+	\subfloat[Gêiser de gás vespeno]{\includegraphics[scale=0.012]{Imagens/Vespene.jpg}}
+	\caption{Recursos de StarCraft.}
+	\label{fig:resources}
+\end{figure}
+
+Desses recursos naturais, os minérios são os principais, usados para produção de todas as unidades, estruturas e pesquisas dentro do jogo. O gás vespeno, por sua vez, é usado para unidades especiais e pesquisas tecnológicas. Para aquisição desses recursos são necessários trabalhadores, que se encarregarão de coletar os recursos a partir de alguma fonte e entregá-los à base mais próxima.
+
+Além de recursos naturais, o jogador precisa de recursos secundários. Dentre estes recursos secundários, os mais notórios são os \emph{suprimentos}, sem os quais não é possível produzir unidades. Cada unidade consome uma quantidade pré-determinada de suprimentos, e para poder produzir mais unidades é necessária a criação de mais fontes de suprimento, até que se chegue na capacidade máxima determinada pelo jogo. Outro recurso secundário é o \emph{tempo}, uma vez que toda produção e movimentação está restrita ao tempo que vai ser levado para terminá-los.
+
+A criação de unidades, incluindo trabalhadores, é feita em estruturas de produção. Essas estruturas podem ter pré-requisitos estruturais, como por exemplo a \emph{factory}\footnote{Estrutura de produção da raça Terran que produz unidades de ataque terrestres mecânicas.} que necessita de uma \emph{barracks}\footnote{Estrutura de produção da raça Terran que produz soldados.} para ser construída. Unidades também podem ter esses pré-requisitos, como o \emph{dragoon}\footnote{Unidade de ataque terrestre da raça Protoss que tem a capacidade de atingir unidades aéreas e terrestres.} que precisa da \emph{cybernetics core}\footnote{Estrutura de pesquisa da raça Protoss que se encarrega das tecnologias de ataque e defesa das unidades aéreas.}. As estruturas de produção, bem como as estruturas de pesquisa, possuem uma fila de produção com a qual pode-se antecipar a ordem de construção de alguma unidade ou pesquisa, isto é, sem precisar futuramente mandar a estrutura produzir no tempo exato. Isso ajuda o jogador a otimizar o tempo em algumas situações, como quando ele quer produzir muitas unidades.
+
+Antes de cada partida, o jogador deve escolher uma entre três raças, cada uma com suas próprias árvores tecnológicas e peculiaridades. As raças disponíveis são:
+\begin{itemize}
+	\item \emph{Protoss}: é uma raça que possui unidades muito resistentes e com elevado poder de fogo, porém consomem muito de todos os recursos - minérios, gás, suprimento e tempo - para serem produzidas. Suas estruturas de produção são especializadas: \emph{gateway} é encarregado de produzir as unidades terrestres básicas de ataque, a \emph{robotics facility} produz unidades utilitárias, isto é, unidades que precisam de unidades básicas para que seu uso no exército tenha sentido, e o \emph{stargate} produz unidades aéreas de ataque. Sua estrutura-base é o \emph{nexus}.
+	\item \emph{Zerg}: voltada a produzir muitas unidades de uma só vez, esta raça possui as unidades mais frágeis e mais baratas do jogo. Ao contrário das outras raças, ela possui apenas uma estrutura de produção, que também é sua estrutura-base, a \emph{hatchery}. A \emph{hatchery} gera larvas, unidades especiais que servem apenas para produzir outras unidades, e não possui fila de produção, de forma que é possível produzir várias unidades ao mesmo tempo.
+	\item \emph{Terran}: é uma raça parecida com os Protoss, porém mais versátil. Um meio termo entre Protoss e Zerg, já que possui unidades baratas e frágeis, mas com sua produção limitada a estruturas de produção semelhantes às dos Protoss. Os Terran possuem dois tipos de estratégias consolidados, um baseado nas unidades feitas nas \emph{barracks} e outro baseado nas unidades feitas na \emph{factory}. As estratégias baseadas em \emph{barracks} se chamam \emph{Bio Terran} ou somente \emph{Bio}, e as baseadas em \emph{factory} se chamam \emph{Mech Terran} ou somente \emph{Mech}.
+\end{itemize}
+
+\section{Competição em StarCraft}
+StarCraft: Brood War é um dos jogos mais bem sucedidos da história tanto em popularidade, tendo vendido mais de 11 milhões de cópias até 2009 \cite{graft09}, como em tempo de competição profissional. Por mais de dez anos, este jogo foi jogado profissionalmente na Coreia do Sul em várias ligas, como a \abrv[OSL -- OnGameNet Starleague]{OSL} (OnGameNet Starleague)\footnote{\url{http://wiki.teamliquid.net/starcraft/OnGameNet_Starleague_(OSL)}}, bem como no evento internacional de esportes eletrônicos World Cyber Games, desde do ano 2000 na WCG Challenge\footnote{\url{https://web.archive.org/web/20020709193219/http://www.worldcybergames.org/challenge/summary.asp}} até a WCG 2010\footnote{\url{http://wiki.teamliquid.net/starcraft/WCG_2010}}.
+
+Durante esse período, as competições acompanharam a evolução das estratégias de cada uma das raças. Um exemplo dessa evolução é o conjunto das estratégias usadas pelos jogadores Zerg contra jogadores Terran nas competições. Durante um certo período as estratégias mais usadas pelos Terran dominaram as estratégias usadas pelos Zerg. Com a criação e popularização de uma abertura chamada \emph{3 Hatch Muta} pelo jogador sAviOr\footnote{\url{http://wiki.teamliquid.net/starcraft/Metagame}}, que é a criação de 3 \emph{hatcheries} e sua transição para a criação de \emph{mutalisks}\footnote{Unidade aérea de assédio \emph{zerg} capaz de atingir alvos aéreos e terrestres.} para atingir a economia do oponente, foi constatado um aumento na taxa de vitórias Zerg nas competições, levando essa raça a ter uma vantagem contra os Terran.
+
+O estado atual das estratégias mais usadas é chamado de \emph{metagame}, ou metajogo, e é influenciado tanto pelos mapas que estão sendo jogados nas competições bem como pelas estratégias usadas pelos potenciais adversários, como visto anteriormente. Um exemplo de mudança de metajogo devido aos mapas aconteceu com o mapa Destination\footnote{\url{http://wiki.teamliquid.net/starcraft/Destination}}, no confronto Protoss versus Zerg (PvZ). Por um tempo, os Protoss estiveram com uma porcentagem favorável de vitórias no mapa, porém os jogadores Zerg descobriram uma ordem de construção que melhor se adaptava ao mapa e conseguiram reverter a situação, vencendo 13 partidas consecutivas. Porém, após essas derrotas os Protoss conseguiram criar uma \emph{build order} que ``contragolpeava'' essa nova \emph{build} dos Zerg e venceram 11 partidas das 15 posteriores.
+
+\subsection{Mapas Competitivos}
+Nas competições de StarCraft, dois jogadores se enfrentam em um ou mais mapas criados previamente. Estes mapas são utilizados durante toda a competição, de forma que jogadores têm a possibilidade de treinar e criar estratégias específicas para os mapas. Estratégias específicas podem aparecer em alguns mapas porque eles podem possuir algumas características únicas, que acabam influenciando as decisões estratégicas do jogador no decorrer da partida.
+
+Ao longo de mais de uma década de competição de StarCraft, a técnica de criação de mapas foi aprimorada de forma a deixar os mapas usados nos campeonatos equilibrados para todas as partidas. Devido às características de cada raça, os criadores de mapas tiveram que adotar determinados padrões para manter a taxa de vitórias de cada raça balanceadas entre si.
+
+Cada mapa possui de duas a quatro localizações iniciais, onde ficam as \emph{bases principais} do mapa, e cada base principal possui uma expansão secundária ou \emph{natural}, que é a expansão mais próxima (Figura~\ref{fig:natural}). Bases principais estão em regiões que possuem uma maior área e mais minérios que as regiões de outras expansões, além de ter um gargalo pequeno, longe da posição inicial, ligando-a à sua natural. Expansões naturais possuem uma área menor e um outro gargalo, maior e mais próximo à base, que a conecta ao restante do mapa.
+
+Todas as expansões normalmente possuem um grupo de minérios que descrevem uma curva ao redor da base. Esse grupo é chamado comumente de \emph{linha de minérios}. As linhas de minérios das bases normalmente estão muito próximas às fronteiras da região, de forma que o espaço que há serve apenas para construção de estruturas de defesa pequenas.
+
+Em alguns mapas são encontradas expansões que não possuem conexão por terra com o resto do mapa, sendo possível conquistá-las apenas através de um transporte aéreo que leve um trabalhador para construir a base. Esse tipo de expansão, chamado de expansão-ilha ou somente ilha, não é levado em conta nesse trabalho, devido à complexidade envolvida na hora de criar um processo de decisão que inclua as ilhas.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.18]{Imagens/mapa-tudo.jpg}
+	\caption{Indicação de base principal e natural, e indicação do significado dos principais termos no mapa Destination.}
+	\label{fig:natural}
+\end{figure}
+
+\section{Processo de decisão nas partidas de StarCraft}
+StarCraft é um jogo que fornece pouca informação ao jogador sobre o estado atual da partida. O jogador consegue ver apenas aquilo que está dentro do campo de visão de suas unidades. O que está fora desse campo de visão fica coberto pelo que é conhecido como \emph{névoa de guerra}, em inglês \emph{fog of war} ou FOW. Essa névoa é responsável por inserir a incerteza que existe em um ambiente de guerra. O terreno que está coberto pela FOW pode ter dois estados: desconhecido ou visto recentemente. Posições do mapa desconhecidas ficam completamente obscuras, sendo impossível para o jogador saber dentro da partida quais são as características do terreno. O terreno já visitado fica visível para o jogador, porém com uma tonalidade mais escura para diferenciá-lo do terreno dentro do seu campo de visão. Nesse terreno, também é possível ver a posição das estruturas inimigas na última vez que o jogador passou pela região (Figura~\ref{fig:fow}).
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.4]{Imagens/fow.jpg}
+	\caption[Névoa de guerra em StarCraft.]{Névoa de guerra em StarCraft. No canto esquerdo, em uma tonalidade mais clara, está uma área visível ao jogador. No canto superior direito está uma área recentemente visitada pelo jogador. É possível ver estruturas e a tonalidade é mais escura que a área visível. No canto inferior direito está uma área inexplorada. Não é possível adquirir nenhum tipo de informação desta área até que uma unidade a explore.}
+	\label{fig:fow}
+\end{figure}
+
+Ao iniciar uma partida, o jogador deve se fazer uma série de perguntas a fim de tomar as melhores decisões:
+\begin{enumerate}
+	\item Qual a raça que estou enfrentando?
+	\item Em que mapa estou jogando?
+	\item Quais aberturas posso utilizar contra essa raça nesse mapa?
+	\item Quais aberturas o oponente pode usar?
+	\item Onde ele está?
+\end{enumerate}
+
+Respondendo essas perguntas, o jogador poderá traçar um plano estratégico inicial e começar a tentar executá-lo. Primeiramente, deve coletar recursos com seus trabalhadores. Em StarCraft, não há como mandar seus trabalhadores minerarem diretamente da base antes de criá-los, como acontece em jogos como Age of Empires. Por isso, o jogador deve levá-los individualmente após sua criação até uma jazida de minérios para a coleta. Depois de coletar minérios e produzir trabalhadores, o jogador precisará construir estruturas. A posição de construção das estruturas é escolhida normalmente de acordo com ``a posição mais próximo da base'', porém isso nem sempre é desejável, a depender da abertura. Por exemplo, a abertura Protoss de expansão rápida, \emph{Forge Fast Expand}, só é possível com a criação de uma muralha de estruturas próxima à expansão (Figura~\ref{fig:ffe}), já que há uma grande chance do oponente tentar puni-lo por ter escolhido uma abertura \emph{greedy}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.5]{Imagens/PwDestination9.png}
+	\caption[Estado da expansão na abertura Protoss \emph{Forge Fast Expand}.]{Estado da expansão na abertura Protoss \emph{Forge Fast Expand}. As estruturas e unidades são organizadas de forma a dificultar a movimentação das unidades inimigas, que podem ser atingidas pelos dois canhões de fótons que estão próximos do pilar energético, a estrutura azul central. Esta organização serve para proteger tanto a base que está situada na natural como a base principal.}
+	\label{fig:ffe}
+\end{figure}
+
+Enquanto constrói estruturas e cria trabalhadores, o jogador deve procurar o seu oponente pelo mapa, sendo importante, para isso, identificar as posições iniciais, para ter um direcionamento melhor na sua exploração. Após encontrar seu oponente, o jogador deve identificar sua abertura e tentar reagir apropriadamente. Por exemplo, caso o oponente tenha iniciado o jogo com um \emph{cheese rush}, o jogador terá que se focar em defender-se. Ele pode fazer isso construindo estruturas de defesa e unidades militares para ser capaz de defletir o ataque inimigo. Cada abertura pode necessitar de uma reação diferente das outras.
+
+No decorrer do jogo, conforme a partida vai evoluindo, perguntas mais complexas vão aparecendo, como:
+\begin{enumerate}
+	\item Que abertura o oponente usou de fato?
+	\item Que transição faço, após ver a abertura de meu oponente?
+	\item Quando posso expandir?
+	\item Onde posso expandir?
+	\item Onde colocar estruturas de defesa?
+	\item Qual a composição de unidades que devo ter?
+	\item Quantas estruturas de produção devo ter no meio-jogo?
+	\item Onde o oponente está expandindo?
+	\item Qual a composição do seu exército?
+	\item Que tecnologias pesquisou?
+	\item Onde irá atacar e com que unidades?
+	\item Quais tecnologias devo pesquisar?
+	\item Quando devo atacar?
+	\item Onde devo atacar?
+\end{enumerate}
+
+Além disso, há perguntas que não dependem do pensamento estratégico de mais alto nível, sendo mais relacionadas ao controle de exército:
+\begin{enumerate}
+	\item Como devo atacar?
+	\item Qual deve ser o posicionamento das minhas unidades?
+	\item Que unidades inimigas devem ser focadas primeiro em um combate?
+	\item Quando devo recuar?
+\end{enumerate}
+
+Respondendo essas perguntas de acordo com o metajogo vigente, os jogadores profissionais conseguem determinar as composições, reações, \emph{timings} e transições mais eficientes. O intuito deste trabalho é olhar para o que já foi feito pelos jogadores profissionais como o resultado de um grande processo de aprendizado e tentar levar esses questionamentos para dentro de um modelo de \emph{game AI}.
+
