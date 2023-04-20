@@ -3,11 +3,13 @@
 *.aux
 *.bbl
 *.blg
-*.bst
-*.def
 *.lo*
 *.out
 *.toc
+*.nav
+*.snm
 
 *.sty
 *.cls
+*.bst
+*.def
